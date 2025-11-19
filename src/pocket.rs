@@ -1,6 +1,6 @@
 //! Helper utilities to read Pocket exports for seeding our crawler.
 
-use std::io::Read;
+use std::{fmt, io::Read};
 
 use anyhow::Error;
 use reqwest::Url;
@@ -35,11 +35,11 @@ where
 
 #[derive(Debug, Deserialize)]
 pub struct PocketItem {
-    title: String,
-    url: Url,
-    time_added: usize,
-    tags: PocketTags,
-    status: PocketStatus,
+    pub title: String,
+    pub url: Url,
+    pub time_added: usize,
+    pub tags: PocketTags,
+    pub status: PocketStatus,
 }
 
 #[derive(Debug)]
@@ -62,6 +62,19 @@ impl<'de> Deserialize<'de> for PocketTags {
     }
 }
 
+impl fmt::Display for PocketTags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let joined = self
+            .0
+            .iter()
+            .map(|tag| tag.0.as_str())
+            .collect::<Vec<&str>>()
+            .join(",");
+
+        write!(f, "{joined}")
+    }
+}
+
 impl IntoIterator for PocketTags {
     type Item = Tag;
 
@@ -79,7 +92,7 @@ impl PocketTags {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct Tag(String);
+pub struct Tag(pub String);
 
 #[derive(Debug, Clone, Deserialize)]
 pub enum PocketStatus {
@@ -87,6 +100,17 @@ pub enum PocketStatus {
     Unread,
     #[serde(rename = "archive")]
     Archive,
+}
+
+impl fmt::Display for PocketStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let out = match self {
+            PocketStatus::Unread => "unread",
+            PocketStatus::Archive => "archive",
+        };
+
+        write!(f, "{out}")
+    }
 }
 
 #[cfg(test)]
