@@ -3,7 +3,8 @@ use std::{fs::File, path::PathBuf};
 use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
 
-use reading_addiction::{db::Db, pocket::PocketReader};
+use reading_addiction::{db::Db, pocket::PocketReader, worker::spawn_worker};
+use tokio::task::JoinSet;
 
 const DB_NAME: &str = "addiction.db";
 
@@ -36,9 +37,22 @@ enum Commands {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
+
+    // Set up our database.
     let db_path = cli.db.unwrap_or(PathBuf::from(DB_NAME.to_string()));
     let db = Db::new(db_path).await?;
 
+    // Create channel for distributing work items.
+    let (s, r) = async_channel::bounded(64);
+
+    // Spawn a pool of worker tasks for crawling and cleaning.
+    let mut workers = JoinSet::new();
+    for _ in 0..16 {
+        let r_i = r.clone();
+        workers.spawn(async move { spawn_worker(r_i) });
+    }
+
+    // Do what was asked.
     match cli.command {
         Some(Commands::Pocket { path }) => {
             let f = File::open(path)?;
@@ -59,6 +73,9 @@ async fn main() -> Result<()> {
         }
         None => {}
     }
+
+    // Wait for our full worker pool to finish cleaning up.
+    let _report_cards = workers.join_all().await;
 
     Ok(())
 }
