@@ -3,11 +3,7 @@ use std::{fs::File, path::PathBuf};
 use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
 
-use reading_addiction::{
-    db::{DbActor, DbMessage},
-    pocket::PocketReader,
-};
-use tokio::sync::{mpsc, oneshot};
+use reading_addiction::{db::Db, pocket::PocketReader};
 
 const DB_NAME: &str = "addiction.db";
 
@@ -33,7 +29,7 @@ enum Commands {
     Crawl {
         /// how many uncrawled items to process [default: all]
         #[arg(short)]
-        n: usize,
+        n: Option<usize>,
     },
 }
 
@@ -41,18 +37,9 @@ enum Commands {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
     let db_path = cli.db.unwrap_or(PathBuf::from(DB_NAME.to_string()));
+    let db = Db::new(db_path).await?;
 
-    let (db_actor, rx) = mpsc::channel(32);
-
-    // Spawn our database actor in a generic OS thread so we don't block
-    // our crawler tasks when writing a big transaction to SQLite.
-    std::thread::spawn(move || {
-        DbActor::new(rx, db_path)
-            .expect("DB actor is dying because we failed to set up SQLite")
-            .run();
-    });
-
-    match &cli.command {
+    match cli.command {
         Some(Commands::Pocket { path }) => {
             let f = File::open(path)?;
             let pr = PocketReader::new(f);
@@ -60,20 +47,16 @@ async fn main() -> Result<()> {
             println!("found {} Pocket items", items.len());
 
             for item in items {
-                let (resp_tx, resp_rx) = oneshot::channel();
                 let url = item.url.to_string();
-                db_actor
-                    .send(DbMessage::SaveItem {
-                        item,
-                        resp: resp_tx,
-                    })
-                    .await?;
-                if resp_rx.await.is_err() {
+                if db.save_item(item).await.is_err() {
                     return Err(anyhow!("failed to insert item for {url}..."));
                 }
             }
         }
-        Some(Commands::Crawl { n }) => {}
+        Some(Commands::Crawl { n }) => {
+            let candidates = db.get_uncrawled_items(n).await?;
+            println!("Found {} candidates for crawling", candidates.len());
+        }
         None => {}
     }
 
