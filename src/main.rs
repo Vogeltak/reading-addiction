@@ -3,8 +3,16 @@ use std::{fs::File, path::PathBuf};
 use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
 
-use reading_addiction::{db::Db, pocket::PocketReader, worker::spawn_worker};
-use tokio::task::JoinSet;
+use reading_addiction::{
+    db::Db,
+    pocket::PocketReader,
+    worker::{WorkItem, spawn_worker},
+};
+use reqwest::Client;
+use tokio::{
+    sync::{mpsc, oneshot},
+    task::JoinSet,
+};
 
 const DB_NAME: &str = "addiction.db";
 
@@ -43,13 +51,17 @@ async fn main() -> Result<()> {
     let db = Db::new(db_path).await?;
 
     // Create channel for distributing work items.
-    let (s, r) = async_channel::bounded(64);
+    let (work_q, r) = async_channel::bounded(64);
+
+    // Create an HTTP client that can be shared (internal connection pool).
+    let client = Client::new();
 
     // Spawn a pool of worker tasks for crawling and cleaning.
     let mut workers = JoinSet::new();
     for _ in 0..16 {
         let r_i = r.clone();
-        workers.spawn(async move { spawn_worker(r_i) });
+        let c_i = client.clone();
+        workers.spawn(async move { spawn_worker(c_i, r_i).await });
     }
 
     // Do what was asked.
@@ -70,6 +82,40 @@ async fn main() -> Result<()> {
         Some(Commands::Crawl { n }) => {
             let candidates = db.get_uncrawled_items(n).await?;
             println!("Found {} candidates for crawling", candidates.len());
+
+            // Results channel for work output
+            let (results_tx, mut results_rx) = mpsc::channel(64);
+
+            let worker_tx = results_tx.clone();
+
+            // Spawn a Seeder task so we can start consuming results while
+            // we're still pushing work on the queue.
+            tokio::spawn(async move {
+                for c in candidates {
+                    let _ = work_q
+                        .send(WorkItem {
+                            url: c.url,
+                            circle_back: worker_tx.clone(),
+                        })
+                        .await;
+                }
+            });
+
+            println!("hello");
+
+            // Prevent that we keep one sender open!
+            drop(results_tx);
+
+            while let Some(worker_output) = results_rx.recv().await {
+                match worker_output {
+                    Ok(article) => {
+                        // Update our database with the extracted content
+                        // TODO: db.store_crawl
+                        println!("{}", article.markdown);
+                    }
+                    Err(err) => eprintln!("Error: {err}"),
+                }
+            }
         }
         None => {}
     }
