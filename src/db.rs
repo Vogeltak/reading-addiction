@@ -30,6 +30,7 @@ impl Db {
                tags TEXT,
                status TEXT NOT NULL,
                time_last_crawl INTEGER,
+               http_status_last_crawl INTEGER,
                html TEXT,
                markdown TEXT
             );",

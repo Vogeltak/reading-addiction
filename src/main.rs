@@ -4,15 +4,13 @@ use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
 
 use reading_addiction::{
+    USER_AGENT,
     db::Db,
     pocket::PocketReader,
     worker::{WorkItem, spawn_worker},
 };
 use reqwest::Client;
-use tokio::{
-    sync::{mpsc, oneshot},
-    task::JoinSet,
-};
+use tokio::{sync::mpsc, task::JoinSet};
 
 const DB_NAME: &str = "addiction.db";
 
@@ -54,7 +52,7 @@ async fn main() -> Result<()> {
     let (work_q, r) = async_channel::bounded(64);
 
     // Create an HTTP client that can be shared (internal connection pool).
-    let client = Client::new();
+    let client = Client::builder().user_agent(USER_AGENT).build()?;
 
     // Spawn a pool of worker tasks for crawling and cleaning.
     let mut workers = JoinSet::new();
@@ -101,20 +99,31 @@ async fn main() -> Result<()> {
                 }
             });
 
-            println!("hello");
-
             // Prevent that we keep one sender open!
             drop(results_tx);
+
+            let mut crawled_articles = vec![];
 
             while let Some(worker_output) = results_rx.recv().await {
                 match worker_output {
                     Ok(article) => {
                         // Update our database with the extracted content
-                        // TODO: db.store_crawl
-                        println!("{}", article.markdown);
+                        // TODO: db.save_crawl
+                        crawled_articles.push(article);
                     }
-                    Err(err) => eprintln!("Error: {err}"),
+                    Err(err) => eprintln!("Worker error: {err}"),
                 }
+            }
+
+            println!("Received {} results from crawling", crawled_articles.len());
+            for a in crawled_articles {
+                println!(
+                    "{} - {} {} bytes of text, ~{} tokens",
+                    a.status,
+                    a.url,
+                    a.markdown.len(),
+                    a.markdown.len() / 4
+                )
             }
         }
         None => {}
