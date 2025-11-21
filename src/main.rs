@@ -76,6 +76,9 @@ async fn main() -> Result<()> {
                     return Err(anyhow!("failed to insert item for {url}..."));
                 }
             }
+
+            // Don't need it here, so drop it so all workers can wind down.
+            drop(work_q);
         }
         Some(Commands::Crawl { n }) => {
             let candidates = db.get_uncrawled_items(n).await?;
@@ -102,28 +105,21 @@ async fn main() -> Result<()> {
             // Prevent that we keep one sender open!
             drop(results_tx);
 
-            let mut crawled_articles = vec![];
-
             while let Some(worker_output) = results_rx.recv().await {
                 match worker_output {
                     Ok(article) => {
                         // Update our database with the extracted content
-                        // TODO: db.save_crawl
-                        crawled_articles.push(article);
+                        println!(
+                            "{} - {} {} bytes of text, ~{} tokens",
+                            article.status,
+                            article.url,
+                            article.markdown.len(),
+                            article.markdown.len() / 4
+                        );
+                        db.save_crawl(article).await?;
                     }
                     Err(err) => eprintln!("Worker error: {err}"),
                 }
-            }
-
-            println!("Received {} results from crawling", crawled_articles.len());
-            for a in crawled_articles {
-                println!(
-                    "{} - {} {} bytes of text, ~{} tokens",
-                    a.status,
-                    a.url,
-                    a.markdown.len(),
-                    a.markdown.len() / 4
-                )
             }
         }
         None => {}

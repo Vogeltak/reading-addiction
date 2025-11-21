@@ -7,7 +7,7 @@ use reqwest::Url;
 use rusqlite::params;
 use tokio_rusqlite::Connection;
 
-use crate::pocket::PocketItem;
+use crate::{pocket::PocketItem, worker::CrawledArticle};
 
 /// Data store backed by SQLite.
 pub struct Db {
@@ -88,6 +88,28 @@ impl Db {
             .collect();
 
         Ok(items)
+    }
+
+    pub async fn save_crawl(&self, crawl: CrawledArticle) -> Result<()> {
+        let _ = self
+            .conn
+            .call(move |conn| {
+                conn.execute(
+                    "UPDATE items
+                    SET time_last_crawl = ?, http_status_last_crawl = ?, html = ?, markdown = ?
+                    WHERE url = ?",
+                    params![
+                        crawl.timestamp,
+                        crawl.status.as_u16(),
+                        crawl.html,
+                        crawl.markdown,
+                        crawl.url.to_string()
+                    ],
+                )
+            })
+            .await?;
+
+        Ok(())
     }
 }
 

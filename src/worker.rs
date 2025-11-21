@@ -1,5 +1,7 @@
 //! Web crawler and parser.
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use anyhow::{Result, anyhow};
 use async_channel::Receiver;
 use dom_smoothie::{Config, Readability, TextMode};
@@ -16,6 +18,7 @@ pub struct WorkItem {
 
 #[derive(Debug)]
 pub struct CrawledArticle {
+    pub timestamp: u64,
     pub status: StatusCode,
     pub url: Url,
     pub html: String,
@@ -57,9 +60,13 @@ pub async fn spawn_worker(client: Client, inbox: WorkerInbox) {
             let article = Readability::new(html, Some(url2.as_str()), Some(cfg2))
                 .unwrap()
                 .parse()
-                .map_err(|e| anyhow!("failed to parse {e:?}"))?;
+                .map_err(|e| anyhow!("failed to parse {}: {e:?}", url2))?;
 
             Ok(CrawledArticle {
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("system time > unix epoch")
+                    .as_secs(),
                 status: status_code,
                 url: url2.clone(),
                 html: article.content.to_string(),
