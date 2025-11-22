@@ -1,4 +1,4 @@
-use std::{fs::File, path::PathBuf};
+use std::{collections::HashMap, fs::File, path::PathBuf};
 
 use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
@@ -38,6 +38,8 @@ enum Commands {
         #[arg(short)]
         n: Option<usize>,
     },
+    /// get latest crawl results as a histogram
+    Histogram,
 }
 
 #[tokio::main]
@@ -121,6 +123,19 @@ async fn main() -> Result<()> {
                     Err(err) => eprintln!("Worker error: {err}"),
                 }
             }
+        }
+        Some(Commands::Histogram) => {
+            let hist: HashMap<u16, usize> = db
+                .get_crawl_status_hist()
+                .await?
+                .into_iter()
+                .map(|(k, v)| (k.unwrap_or(0), v))
+                .collect();
+            // println!("{hist:#?}");
+            println!("{}", serde_json::to_string(&hist)?);
+
+            // Don't need it here, so drop it so all workers can wind down.
+            drop(work_q);
         }
         None => {}
     }

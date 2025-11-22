@@ -1,6 +1,6 @@
 //! Data store actor.
 
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Result;
 use reqwest::Url;
@@ -110,6 +110,25 @@ impl Db {
             .await?;
 
         Ok(())
+    }
+
+    pub async fn get_crawl_status_hist(&self) -> Result<HashMap<Option<u16>, usize>> {
+        let status_codes: Vec<Option<u16>> = self
+            .conn
+            .call(move |conn| {
+                let mut stmt = conn.prepare("SELECT http_status_last_crawl FROM items")?;
+                stmt.query_map([], |row| row.get::<_, Option<u16>>(0))?
+                    .collect()
+            })
+            .await?;
+
+        let mut hist = HashMap::new();
+
+        for code in status_codes {
+            *hist.entry(code).or_insert(0) += 1;
+        }
+
+        Ok(hist)
     }
 }
 
