@@ -1,8 +1,9 @@
-use std::{collections::HashMap, fs::File, path::PathBuf};
+use std::{collections::HashMap, fs::File, iter::zip, path::PathBuf};
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use clap::{Parser, Subcommand};
 
+use ndarray::{Array1, Array2, Axis};
 use reading_addiction::{
     USER_AGENT,
     db::Db,
@@ -10,6 +11,8 @@ use reading_addiction::{
     worker::{WorkItem, spawn_worker},
 };
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use text_splitter::MarkdownSplitter;
 use tokio::{sync::mpsc, task::JoinSet};
 
 const DB_NAME: &str = "addiction.db";
@@ -40,6 +43,12 @@ enum Commands {
     },
     /// get latest crawl results as a histogram
     Histogram,
+    /// embed articles
+    Embed {
+        /// how many articles to embed [default: all]
+        #[arg(short)]
+        n: Option<usize>,
+    },
 }
 
 #[tokio::main]
@@ -49,20 +58,6 @@ async fn main() -> Result<()> {
     // Set up our database.
     let db_path = cli.db.unwrap_or(PathBuf::from(DB_NAME.to_string()));
     let db = Db::new(db_path).await?;
-
-    // Create channel for distributing work items.
-    let (work_q, r) = async_channel::bounded(64);
-
-    // Create an HTTP client that can be shared (internal connection pool).
-    let client = Client::builder().user_agent(USER_AGENT).build()?;
-
-    // Spawn a pool of worker tasks for crawling and cleaning.
-    let mut workers = JoinSet::new();
-    for _ in 0..16 {
-        let r_i = r.clone();
-        let c_i = client.clone();
-        workers.spawn(async move { spawn_worker(c_i, r_i).await });
-    }
 
     // Do what was asked.
     match cli.command {
@@ -78,11 +73,22 @@ async fn main() -> Result<()> {
                     return Err(anyhow!("failed to insert item for {url}..."));
                 }
             }
-
-            // Don't need it here, so drop it so all workers can wind down.
-            drop(work_q);
         }
         Some(Commands::Crawl { n }) => {
+            // Create channel for distributing work items.
+            let (work_q, r) = async_channel::bounded(64);
+
+            // Create an HTTP client that can be shared (internal connection pool).
+            let client = Client::builder().user_agent(USER_AGENT).build()?;
+
+            // Spawn a pool of worker tasks for crawling and cleaning.
+            let mut workers = JoinSet::new();
+            for _ in 0..16 {
+                let r_i = r.clone();
+                let c_i = client.clone();
+                workers.spawn(async move { spawn_worker(c_i, r_i).await });
+            }
+
             let candidates = db.get_uncrawled_items(n).await?;
             println!("Found {} candidates for crawling", candidates.len());
 
@@ -123,6 +129,9 @@ async fn main() -> Result<()> {
                     Err(err) => eprintln!("Worker error: {err}"),
                 }
             }
+
+            // Wait for our full worker pool to finish cleaning up.
+            let _report_cards = workers.join_all().await;
         }
         Some(Commands::Histogram) => {
             let hist: HashMap<u16, usize> = db
@@ -131,17 +140,120 @@ async fn main() -> Result<()> {
                 .into_iter()
                 .map(|(k, v)| (k.unwrap_or(0), v))
                 .collect();
-            // println!("{hist:#?}");
-            println!("{}", serde_json::to_string(&hist)?);
 
-            // Don't need it here, so drop it so all workers can wind down.
-            drop(work_q);
+            println!("{}", serde_json::to_string(&hist)?);
+        }
+        Some(Commands::Embed { n }) => {
+            let candidates = db.get_unembedded_items(n).await?;
+            println!("Found {} candidates for embedding", candidates.len());
+
+            let api_key = std::env::var("OPENROUTER_API_KEY")?;
+
+            // Create an HTTP client that can be shared (internal connection pool).
+            let client = Client::new();
+
+            // Create our semantic chunker for markdown with a high max because
+            // we're using our embeddings for clustering and not for retrieval.
+            // That's why we can be less precise.
+            let splitter = MarkdownSplitter::new(5000);
+
+            // Ugh, okay, don't have the mental capacity right now to do this with concurrent actors.
+            // So let's just do it in serial.
+            for c in candidates {
+                let chunks: Vec<&str> = splitter.chunks(&c.markdown).collect();
+
+                let req = EmbeddingRequest {
+                    model: "qwen/qwen3-embedding-8b".to_string(),
+                    input: chunks.clone(),
+                };
+
+                let res = client
+                    .post("https://openrouter.ai/api/v1/embeddings")
+                    .header("Authorization", format!("Bearer {}", &api_key))
+                    .header("Content-Type", "application/json")
+                    .json(&req)
+                    .send()
+                    .await?;
+
+                println!("{} (OpenRouter) - {}", res.status(), c.url);
+
+                let embedding: EmbeddingResponse =
+                    res.json().await.context("failed to parse response")?;
+
+                let mut data = embedding.data;
+                data.sort_by_key(|d| d.index);
+
+                for (chunk_text, chunk_data) in zip(chunks, data.clone()) {
+                    db.save_chunk_and_embedding(
+                        c.url.clone(),
+                        chunk_text.to_string(),
+                        &chunk_data.embedding,
+                    )
+                    .await?;
+                }
+
+                // Finally, do mean pooling to determine the document embedding.
+                let embeddings = data.into_iter().map(|ed| ed.embedding).collect::<Vec<_>>();
+                let doc_vector = mean_pooling_ndarray(&embeddings)?.to_vec();
+
+                db.save_doc_vector(c.url, &doc_vector).await?;
+            }
         }
         None => {}
     }
 
-    // Wait for our full worker pool to finish cleaning up.
-    let _report_cards = workers.join_all().await;
-
     Ok(())
+}
+
+#[derive(Debug, Serialize)]
+struct EmbeddingRequest<'a> {
+    model: String,
+    input: Vec<&'a str>,
+}
+
+#[derive(Debug, Deserialize)]
+struct EmbeddingResponse {
+    id: String,
+    object: String,
+    data: Vec<EmbeddingData>,
+    model: String,
+    usage: Usage,
+    provider: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct EmbeddingData {
+    object: String,
+    embedding: Vec<f32>,
+    index: usize,
+}
+
+#[derive(Debug, Deserialize)]
+struct Usage {
+    prompt_tokens: usize,
+    total_tokens: usize,
+    cost: f32,
+}
+
+fn mean_pooling_ndarray(embeddings: &[Vec<f32>]) -> Result<Array1<f32>> {
+    if embeddings.is_empty() {
+        return Err(anyhow!("No embeddings provided"));
+    }
+
+    let rows = embeddings.len();
+    let cols = embeddings[0].len();
+
+    // Flatten the Vec<Vec<f32>> into a single Vec to create an Array2
+    let flat_data: Vec<f32> = embeddings.into_iter().flatten().cloned().collect();
+
+    // Create a 2D Matrix (Rows = Chunks, Cols = Dimensions)
+    let matrix = Array2::from_shape_vec((rows, cols), flat_data)?;
+
+    // Calculate mean along Axis 0 (collapsing rows down to one)
+    // This returns an Array1<f32>
+    let mean_vector = matrix
+        .mean_axis(Axis(0))
+        .ok_or(anyhow!("Calculation failed"))?;
+
+    Ok(mean_vector)
 }

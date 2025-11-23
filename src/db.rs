@@ -22,18 +22,25 @@ impl Db {
         conn.call(|conn| {
             conn.execute_batch(
                 "PRAGMA journal_mode = WAL;
-            PRAGMA synchronous = NORMAL;
-            CREATE TABLE IF NOT EXISTS items (
-               url TEXT PRIMARY KEY,
-               title TEXT NOT NULL,
-               time_added INTEGER NOT NULL,
-               tags TEXT,
-               status TEXT NOT NULL,
-               time_last_crawl INTEGER,
-               http_status_last_crawl INTEGER,
-               html TEXT,
-               markdown TEXT
-            );",
+                PRAGMA synchronous = NORMAL;
+                CREATE TABLE IF NOT EXISTS items (
+                   url TEXT PRIMARY KEY,
+                   title TEXT NOT NULL,
+                   time_added INTEGER NOT NULL,
+                   tags TEXT,
+                   status TEXT NOT NULL,
+                   time_last_crawl INTEGER,
+                   http_status_last_crawl INTEGER,
+                   html TEXT,
+                   markdown TEXT,
+                   doc_vector BLOB
+                );
+                CREATE TABLE IF NOT EXISTS chunks (
+                    id INTEGER PRIMARY KEY,
+                    url TEXT NOT NULL,
+                    chunk TEXT NOT NULL,
+                    vector BLOB NOT NULL
+                );",
             )
         })
         .await?;
@@ -66,7 +73,7 @@ impl Db {
         Ok(())
     }
 
-    pub async fn get_uncrawled_items(&self, limit: Option<usize>) -> Result<Vec<UncrawledItem>> {
+    pub async fn get_uncrawled_items(&self, limit: Option<usize>) -> Result<Vec<ItemHandle>> {
         let items: Vec<String> = self
             .conn
             .call(move |conn| {
@@ -84,7 +91,7 @@ impl Db {
         let items = items
             .iter()
             .filter_map(|s| Url::parse(s).ok())
-            .map(|url| UncrawledItem { url })
+            .map(|url| ItemHandle { url })
             .collect();
 
         Ok(items)
@@ -130,9 +137,81 @@ impl Db {
 
         Ok(hist)
     }
+
+    pub async fn get_unembedded_items(&self, limit: Option<usize>) -> Result<Vec<ItemForChunking>> {
+        let items: Vec<(String, String)> = self
+            .conn
+            .call(move |conn| {
+                let sql = match limit {
+                    Some(n) => format!("SELECT url, markdown FROM items WHERE doc_vector IS NULL AND markdown IS NOT NULL LIMIT {n}"),
+                    None => "SELECT url, markdown FROM items WHERE doc_vector IS NULL AND markdown IS NOT NULL".to_string(),
+                };
+
+                let mut stmt = conn.prepare(&sql)?;
+
+                stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?.collect()
+            })
+            .await?;
+
+        let items = items
+            .into_iter()
+            .filter_map(|(u, markdown)| {
+                Url::parse(&u)
+                    .ok()
+                    .map(|url| ItemForChunking { url, markdown })
+            })
+            .collect();
+
+        Ok(items)
+    }
+
+    pub async fn save_chunk_and_embedding(
+        &self,
+        url: Url,
+        chunk: String,
+        vector: &[f32],
+    ) -> Result<()> {
+        let bytes: Vec<u8> = vector.iter().flat_map(|f| f.to_le_bytes()).collect();
+
+        let _ = self
+            .conn
+            .call(move |conn| {
+                conn.execute(
+                    "INSERT INTO chunks (url, chunk, vector) VALUES (?1, ?2, ?3)",
+                    params![url.to_string(), chunk, bytes],
+                )
+            })
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn save_doc_vector(&self, url: Url, doc_vector: &[f32]) -> Result<()> {
+        let bytes: Vec<u8> = doc_vector.iter().flat_map(|f| f.to_le_bytes()).collect();
+
+        let _ = self
+            .conn
+            .call(move |conn| {
+                conn.execute(
+                    "UPDATE items
+                    SET doc_vector = ?
+                    WHERE url = ?",
+                    params![bytes, url.to_string()],
+                )
+            })
+            .await?;
+
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
-pub struct UncrawledItem {
+pub struct ItemHandle {
     pub url: Url,
+}
+
+#[derive(Debug)]
+pub struct ItemForChunking {
+    pub url: Url,
+    pub markdown: String,
 }
