@@ -5,6 +5,7 @@ use std::{collections::HashMap, path::PathBuf};
 use anyhow::Result;
 use reqwest::Url;
 use rusqlite::params;
+use serde::Serialize;
 use tokio_rusqlite::Connection;
 
 use crate::{pocket::PocketItem, worker::CrawledArticle};
@@ -203,6 +204,30 @@ impl Db {
 
         Ok(())
     }
+
+    pub async fn get_urls_with_doc_vector(&self) -> Result<Vec<UrlWithDocVector>> {
+        let items: Vec<(String, Vec<u8>)> = self
+            .conn
+            .call(move |conn| {
+                let mut stmt = conn.prepare("SELECT url, doc_vector FROM items WHERE markdown IS NOT NULL AND doc_vector IS NOT NULL")?;
+                stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?.collect()
+            })
+            .await?;
+
+        let items = items
+            .into_iter()
+            .map(|(url, vector)| {
+                let vector = vector
+                    .chunks_exact(4)
+                    .map(|chunk| f32::from_le_bytes(chunk.try_into().unwrap()))
+                    .collect();
+
+                UrlWithDocVector { url, vector }
+            })
+            .collect();
+
+        Ok(items)
+    }
 }
 
 #[derive(Debug)]
@@ -214,4 +239,10 @@ pub struct ItemHandle {
 pub struct ItemForChunking {
     pub url: Url,
     pub markdown: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UrlWithDocVector {
+    pub url: String,
+    pub vector: Vec<f32>,
 }

@@ -49,6 +49,8 @@ enum Commands {
         #[arg(short)]
         n: Option<usize>,
     },
+    /// get URLs and their doc embedding vector
+    Cluster,
 }
 
 #[tokio::main]
@@ -199,6 +201,10 @@ async fn main() -> Result<()> {
                 db.save_doc_vector(c.url, &doc_vector).await?;
             }
         }
+        Some(Commands::Cluster) => {
+            let items = db.get_urls_with_doc_vector().await?;
+            println!("{}", serde_json::to_string(&items)?);
+        }
         None => {}
     }
 
@@ -244,7 +250,7 @@ fn mean_pooling_ndarray(embeddings: &[Vec<f32>]) -> Result<Array1<f32>> {
     let cols = embeddings[0].len();
 
     // Flatten the Vec<Vec<f32>> into a single Vec to create an Array2
-    let flat_data: Vec<f32> = embeddings.into_iter().flatten().cloned().collect();
+    let flat_data: Vec<f32> = embeddings.iter().flatten().cloned().collect();
 
     // Create a 2D Matrix (Rows = Chunks, Cols = Dimensions)
     let matrix = Array2::from_shape_vec((rows, cols), flat_data)?;
