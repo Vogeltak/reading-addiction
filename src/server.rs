@@ -43,6 +43,10 @@ async fn index(State(db): State<AppState>) -> Markup {
                      li { padding: 0.3rem 0; }
                      a:hover { background: #e9e6da; }
                      .count { color: #666; font-size: 0.9rem; }
+                     .status { margin-right: 0.4rem; }
+                     .status-none { color: #cf222e; }
+                     .status-short { color: #c6613f; }
+                     .status-good { color: #67c23a; display: none; }
                      @media (min-width: 768px) {
                        ul { columns: 2; column-gap: 2rem; }
                        li { break-inside: avoid; }
@@ -54,7 +58,9 @@ async fn index(State(db): State<AppState>) -> Markup {
                 p class="count" { (items.len()) " articles" }
                 ul {
                     @for item in &items {
+                        @let status = item.content_status();
                         li {
+                            span class=(format!("status {}", status.css_class())) { (status.icon()) }
                             a href=(format!("/article?url={}", urlencoding::encode(&item.url))) {
                                 @if item.title.is_empty() {
                                     (item.url)

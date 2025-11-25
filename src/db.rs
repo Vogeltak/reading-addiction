@@ -206,20 +206,24 @@ impl Db {
     }
 
     pub async fn get_unread_items(&self) -> Result<Vec<UnreadItem>> {
-        let items: Vec<(String, String)> = self
+        let items: Vec<(String, String, Option<usize>)> = self
             .conn
             .call(move |conn| {
                 let mut stmt = conn.prepare(
-                    "SELECT url, title FROM items WHERE status = 'unread' ORDER BY time_added DESC",
+                    "SELECT url, title, LENGTH(markdown) FROM items WHERE status = 'unread' ORDER BY time_added DESC",
                 )?;
-                stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+                stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
                     .collect()
             })
             .await?;
 
         let items = items
             .into_iter()
-            .map(|(url, title)| UnreadItem { url, title })
+            .map(|(url, title, markdown_len)| UnreadItem {
+                url,
+                title,
+                markdown_len,
+            })
             .collect();
 
         Ok(items)
@@ -289,6 +293,42 @@ pub struct UrlWithDocVector {
 pub struct UnreadItem {
     pub url: String,
     pub title: String,
+    pub markdown_len: Option<usize>,
+}
+
+impl UnreadItem {
+    pub fn content_status(&self) -> ContentStatus {
+        match self.markdown_len {
+            None => ContentStatus::None,
+            Some(len) if len < 1000 => ContentStatus::Short,
+            Some(_) => ContentStatus::Good,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ContentStatus {
+    None,
+    Short,
+    Good,
+}
+
+impl ContentStatus {
+    pub fn icon(&self) -> &'static str {
+        match self {
+            ContentStatus::None => "○",
+            ContentStatus::Short => "◐",
+            ContentStatus::Good => "●",
+        }
+    }
+
+    pub fn css_class(&self) -> &'static str {
+        match self {
+            ContentStatus::None => "status-none",
+            ContentStatus::Short => "status-short",
+            ContentStatus::Good => "status-good",
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
