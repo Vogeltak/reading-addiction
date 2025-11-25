@@ -205,6 +205,26 @@ impl Db {
         Ok(())
     }
 
+    pub async fn get_unread_items(&self) -> Result<Vec<UnreadItem>> {
+        let items: Vec<(String, String)> = self
+            .conn
+            .call(move |conn| {
+                let mut stmt = conn.prepare(
+                    "SELECT url, title FROM items WHERE status = 'unread' ORDER BY time_added DESC",
+                )?;
+                stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+                    .collect()
+            })
+            .await?;
+
+        let items = items
+            .into_iter()
+            .map(|(url, title)| UnreadItem { url, title })
+            .collect();
+
+        Ok(items)
+    }
+
     pub async fn get_urls_with_doc_vector(&self) -> Result<Vec<UrlWithDocVector>> {
         let items: Vec<(String, Vec<u8>)> = self
             .conn
@@ -245,4 +265,10 @@ pub struct ItemForChunking {
 pub struct UrlWithDocVector {
     pub url: String,
     pub vector: Vec<f32>,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnreadItem {
+    pub url: String,
+    pub title: String,
 }

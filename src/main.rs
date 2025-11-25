@@ -8,6 +8,7 @@ use reading_addiction::{
     USER_AGENT,
     db::Db,
     pocket::PocketReader,
+    server,
     worker::{WorkItem, spawn_worker},
 };
 use reqwest::Client;
@@ -51,6 +52,12 @@ enum Commands {
     },
     /// get URLs and their doc embedding vector
     Cluster,
+    /// start the web server
+    Serve {
+        /// port to listen on [default: 3000]
+        #[arg(short, long, default_value = "3000")]
+        port: u16,
+    },
 }
 
 #[tokio::main]
@@ -204,6 +211,13 @@ async fn main() -> Result<()> {
         Some(Commands::Cluster) => {
             let items = db.get_urls_with_doc_vector().await?;
             println!("{}", serde_json::to_string(&items)?);
+        }
+        Some(Commands::Serve { port }) => {
+            let app = server::router(db);
+            let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+            println!("Listening on http://{}", addr);
+            let listener = tokio::net::TcpListener::bind(addr).await?;
+            axum::serve(listener, app).await?;
         }
         None => {}
     }
