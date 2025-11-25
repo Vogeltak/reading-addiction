@@ -4,7 +4,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Result;
 use reqwest::Url;
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
 use tokio_rusqlite::Connection;
 
@@ -248,6 +248,24 @@ impl Db {
 
         Ok(items)
     }
+
+    pub async fn get_article_by_url(&self, url: String) -> Result<Option<Article>> {
+        let article: Option<(String, String, Option<String>)> = self
+            .conn
+            .call(move |conn| {
+                let mut stmt =
+                    conn.prepare("SELECT url, title, markdown FROM items WHERE url = ?")?;
+                stmt.query_row([&url], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+                    .optional()
+            })
+            .await?;
+
+        Ok(article.map(|(url, title, markdown)| Article {
+            url,
+            title,
+            markdown,
+        }))
+    }
 }
 
 #[derive(Debug)]
@@ -271,4 +289,11 @@ pub struct UrlWithDocVector {
 pub struct UnreadItem {
     pub url: String,
     pub title: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct Article {
+    pub url: String,
+    pub title: String,
+    pub markdown: Option<String>,
 }
