@@ -117,7 +117,7 @@ async fn article(
                 meta name="viewport" content="width=device-width, initial-scale=1";
                 title { (&article.title) }
                 style {
-                    "body { font-family: serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; font-size: 18px; line-height: 1.6; background: #faf9f5; }
+                    "body { font-family: serif; max-width: 80ch; margin: 2rem auto; padding: 0 1rem; font-size: 18px; line-height: 1.6; background: #faf9f5; }
                      h1 { margin-bottom: 0.5rem; }
                      .meta { color: #666; font-size: 0.9rem; margin-bottom: 2rem; }
                      .meta a { color: #666; }
