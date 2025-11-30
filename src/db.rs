@@ -205,7 +205,7 @@ impl Db {
         Ok(())
     }
 
-    pub async fn get_unread_items(&self) -> Result<Vec<UnreadItem>> {
+    pub async fn get_unread_items(&self) -> Result<Vec<ListItem>> {
         let items: Vec<(String, String, Option<usize>)> = self
             .conn
             .call(move |conn| {
@@ -219,7 +219,31 @@ impl Db {
 
         let items = items
             .into_iter()
-            .map(|(url, title, markdown_len)| UnreadItem {
+            .map(|(url, title, markdown_len)| ListItem {
+                url,
+                title,
+                markdown_len,
+            })
+            .collect();
+
+        Ok(items)
+    }
+
+    pub async fn get_archived_items(&self) -> Result<Vec<ListItem>> {
+        let items: Vec<(String, String, Option<usize>)> = self
+            .conn
+            .call(move |conn| {
+                let mut stmt = conn.prepare(
+                    "SELECT url, title, LENGTH(markdown) FROM items WHERE status = 'archive' ORDER BY time_added DESC",
+                )?;
+                stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+                    .collect()
+            })
+            .await?;
+
+        let items = items
+            .into_iter()
+            .map(|(url, title, markdown_len)| ListItem {
                 url,
                 title,
                 markdown_len,
@@ -290,13 +314,13 @@ pub struct UrlWithDocVector {
 }
 
 #[derive(Debug, Clone)]
-pub struct UnreadItem {
+pub struct ListItem {
     pub url: String,
     pub title: String,
     pub markdown_len: Option<usize>,
 }
 
-impl UnreadItem {
+impl ListItem {
     pub fn content_status(&self) -> ContentStatus {
         match self.markdown_len {
             None => ContentStatus::None,

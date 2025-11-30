@@ -22,8 +22,50 @@ pub fn router(db: Db) -> Router {
 
     Router::new()
         .route("/", get(index))
+        .route("/archived", get(archived))
         .route("/article", get(article))
         .with_state(state)
+}
+
+fn list_page_styles() -> &'static str {
+    "body { font-family: serif; max-width: 1200px; margin: 2rem auto; padding: 0 1rem; font-size: 18px; background: #faf9f5; }
+     h1 { padding-bottom: 0.5rem; }
+     ul { list-style: none; padding: 0; }
+     li { padding: 0.3rem 0; }
+     a:hover { background: #e9e6da; }
+     .count { color: #666; font-size: 0.9rem; }
+     .status { margin-right: 0.4rem; }
+     .status-none { color: #cf222e; }
+     .status-short { color: #c6613f; }
+     .status-good { color: #67c23a; display: none; }
+     nav { margin-bottom: 1rem; }
+     nav a { margin-right: 1rem; }
+     @media (min-width: 768px) {
+       ul { columns: 2; column-gap: 2rem; }
+       li { break-inside: avoid; }
+     }"
+}
+
+use crate::db::ListItem;
+
+fn render_item_list(items: &[ListItem]) -> Markup {
+    html! {
+        ul {
+            @for item in items {
+                @let status = item.content_status();
+                li {
+                    span class=(format!("status {}", status.css_class())) { (status.icon()) }
+                    a href=(format!("/article?url={}", urlencoding::encode(&item.url))) {
+                        @if item.title.is_empty() {
+                            (item.url)
+                        } @else {
+                            (item.title)
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 async fn index(State(db): State<AppState>) -> Markup {
@@ -36,41 +78,41 @@ async fn index(State(db): State<AppState>) -> Markup {
                 meta charset="utf-8";
                 meta name="viewport" content="width=device-width, initial-scale=1";
                 title { "Reading List" }
-                style {
-                    "body { font-family: serif; max-width: 1200px; margin: 2rem auto; padding: 0 1rem; font-size: 18px; background: #faf9f5; }
-                     h1 { padding-bottom: 0.5rem; }
-                     ul { list-style: none; padding: 0; }
-                     li { padding: 0.3rem 0; }
-                     a:hover { background: #e9e6da; }
-                     .count { color: #666; font-size: 0.9rem; }
-                     .status { margin-right: 0.4rem; }
-                     .status-none { color: #cf222e; }
-                     .status-short { color: #c6613f; }
-                     .status-good { color: #67c23a; display: none; }
-                     @media (min-width: 768px) {
-                       ul { columns: 2; column-gap: 2rem; }
-                       li { break-inside: avoid; }
-                     }"
-                }
+                style { (list_page_styles()) }
             }
             body {
+                nav {
+                    a href="/" { "Unread" }
+                    a href="/archived" { "Archived" }
+                }
                 h1 { "Unread Articles" }
                 p class="count" { (items.len()) " articles" }
-                ul {
-                    @for item in &items {
-                        @let status = item.content_status();
-                        li {
-                            span class=(format!("status {}", status.css_class())) { (status.icon()) }
-                            a href=(format!("/article?url={}", urlencoding::encode(&item.url))) {
-                                @if item.title.is_empty() {
-                                    (item.url)
-                                } @else {
-                                    (item.title)
-                                }
-                            }
-                        }
-                    }
+                (render_item_list(&items))
+            }
+        }
+    }
+}
+
+async fn archived(State(db): State<AppState>) -> Markup {
+    let items = db.get_archived_items().await.unwrap_or_default();
+
+    html! {
+        (DOCTYPE)
+        html {
+            head {
+                meta charset="utf-8";
+                meta name="viewport" content="width=device-width, initial-scale=1";
+                title { "Archived - Reading List" }
+                style { (list_page_styles()) }
+            }
+            body {
+                nav {
+                    a href="/" { "Unread" }
+                    a href="/archived" { "Archived" }
                 }
+                h1 { "Archived Articles" }
+                p class="count" { (items.len()) " articles" }
+                (render_item_list(&items))
             }
         }
     }
