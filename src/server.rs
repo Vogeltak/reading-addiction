@@ -55,7 +55,7 @@ fn render_item_list(items: &[ListItem]) -> Markup {
                 @let status = item.content_status();
                 li {
                     span class=(format!("status {}", status.css_class())) { (status.icon()) }
-                    a href=(format!("/article?url={}", urlencoding::encode(&item.url))) {
+                    a href=(format!("/article?id={}", &item.pub_id)) {
                         @if item.title.is_empty() {
                             (item.url)
                         } @else {
@@ -120,14 +120,14 @@ async fn archived(State(db): State<AppState>) -> Markup {
 
 #[derive(Deserialize)]
 struct ArticleQuery {
-    url: String,
+    id: String,
 }
 
 async fn article(
     State(db): State<AppState>,
     Query(query): Query<ArticleQuery>,
 ) -> impl IntoResponse {
-    let article = match db.get_article_by_url(query.url.clone()).await {
+    let article = match db.get_article_by_pub_id(query.id.clone()).await {
         Ok(Some(article)) => article,
         Ok(None) => {
             return (StatusCode::NOT_FOUND, "Article not found".to_string()).into_response();

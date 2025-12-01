@@ -206,20 +206,21 @@ impl Db {
     }
 
     pub async fn get_unread_items(&self) -> Result<Vec<ListItem>> {
-        let items: Vec<(String, String, Option<usize>)> = self
+        let items: Vec<(String, String, String, Option<usize>)> = self
             .conn
             .call(move |conn| {
                 let mut stmt = conn.prepare(
-                    "SELECT url, title, LENGTH(markdown) FROM items WHERE status = 'unread' ORDER BY time_added DESC",
+                    "SELECT pub_id, url, title, LENGTH(markdown) FROM items WHERE status = 'unread' ORDER BY time_added DESC",
                 )?;
-                stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+                stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))?
                     .collect()
             })
             .await?;
 
         let items = items
             .into_iter()
-            .map(|(url, title, markdown_len)| ListItem {
+            .map(|(pub_id, url, title, markdown_len)| ListItem {
+                pub_id,
                 url,
                 title,
                 markdown_len,
@@ -230,20 +231,21 @@ impl Db {
     }
 
     pub async fn get_archived_items(&self) -> Result<Vec<ListItem>> {
-        let items: Vec<(String, String, Option<usize>)> = self
+        let items: Vec<(String, String, String, Option<usize>)> = self
             .conn
             .call(move |conn| {
                 let mut stmt = conn.prepare(
-                    "SELECT url, title, LENGTH(markdown) FROM items WHERE status = 'archive' ORDER BY time_added DESC",
+                    "SELECT pub_id, url, title, LENGTH(markdown) FROM items WHERE status = 'archive' ORDER BY time_added DESC",
                 )?;
-                stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+                stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))?
                     .collect()
             })
             .await?;
 
         let items = items
             .into_iter()
-            .map(|(url, title, markdown_len)| ListItem {
+            .map(|(pub_id, url, title, markdown_len)| ListItem {
+                pub_id,
                 url,
                 title,
                 markdown_len,
@@ -277,13 +279,13 @@ impl Db {
         Ok(items)
     }
 
-    pub async fn get_article_by_url(&self, url: String) -> Result<Option<Article>> {
+    pub async fn get_article_by_pub_id(&self, pub_id: String) -> Result<Option<Article>> {
         let article: Option<(String, String, Option<String>)> = self
             .conn
             .call(move |conn| {
                 let mut stmt =
-                    conn.prepare("SELECT url, title, markdown FROM items WHERE url = ?")?;
-                stmt.query_row([&url], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+                    conn.prepare("SELECT url, title, markdown FROM items WHERE pub_id = ?")?;
+                stmt.query_row([&pub_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
                     .optional()
             })
             .await?;
@@ -315,6 +317,7 @@ pub struct UrlWithDocVector {
 
 #[derive(Debug, Clone)]
 pub struct ListItem {
+    pub pub_id: String,
     pub url: String,
     pub title: String,
     pub markdown_len: Option<usize>,
