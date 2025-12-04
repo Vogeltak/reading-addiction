@@ -233,26 +233,13 @@ struct EmbeddingRequest<'a> {
 
 #[derive(Debug, Deserialize)]
 struct EmbeddingResponse {
-    id: String,
-    object: String,
     data: Vec<EmbeddingData>,
-    model: String,
-    usage: Usage,
-    provider: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 struct EmbeddingData {
-    object: String,
     embedding: Vec<f32>,
     index: usize,
-}
-
-#[derive(Debug, Deserialize)]
-struct Usage {
-    prompt_tokens: usize,
-    total_tokens: usize,
-    cost: f32,
 }
 
 fn mean_pooling_ndarray(embeddings: &[Vec<f32>]) -> Result<Array1<f32>> {
