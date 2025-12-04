@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Marxive - {{ title }}{% endblock %}
+
+{% block styles %}
+body {
+    max-width: 1200px;
+}
+
+h1 {
+    padding-bottom: 0.5rem;
+}
+
+ul {
+    list-style: none;
+    padding: 0;
+}
+
+li {
+    padding: 0.3rem 0;
+}
+
+nav {
+    margin-bottom: 1rem;
+}
+
+nav a {
+    margin-right: 1rem;
+}
+
+.count {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.status {
+    margin-right: 0.4rem;
+}
+
+.status-none {
+    color: #cf222e;
+}
+
+.status-short {
+    color: #c6613f;
+}
+
+.status-good {
+    color: #67c23a;
+    display: none;
+}
+
+@media (min-width: 768px) {
+    ul {
+        columns: 2;
+        column-gap: 2rem;
+    }
+
+    li {
+        break-inside: avoid;
+    }
+}
+{% endblock %}
+
+{% block body %}
+<nav>
+    <a href="/">Unread</a>
+    <a href="/archived">Archived</a>
+</nav>
+<h1>{{ heading }}</h1>
+<p class="count">{{ items.len() }} articles</p>
+<ul>
+    {% for item in items %}
+    {% let status = item.content_status() %}
+    <li>
+        <span class="status {{ status.css_class() }}">{{ status.icon() }}</span>
+        <a href="/read/{{ item.pub_id }}">
+            {% if item.title.is_empty() %}
+            {{ item.url }}
+            {% else %}
+            {{ item.title }}
+            {% endif %}
+        </a>
+    </li>
+    {% endfor %}
+</ul>
+{% endblock %}

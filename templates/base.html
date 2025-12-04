@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Marxive - Reading List{% endblock %}</title>
+    <style>
+        body {
+            font-family: serif;
+            font-size: 18px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            background: #faf9f5;
+        }
+
+        a:hover {
+            background: #e9e6da;
+        }
+
+        h1 {
+            font-size: 1.6rem;
+            margin-bottom: 0.5rem;
+            margin-top: 0;
+        }
+
+        h2 {
+            font-size: 1.4rem;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        pre {
+            overflow-x: auto;
+            background: #f0ede5;
+            padding: 1rem;
+            border: 1px dashed black;
+        }
+
+        code {
+            background: #f0ede5;
+            padding: 0.1rem 0.3rem;
+            font-size: 16px;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
+        blockquote {
+            border-left: 3px solid #ccc;
+            margin-left: 0;
+            padding-left: 1rem;
+            color: #555;
+        }
+
+        hr {
+            border: 1px dashed;
+        }
+
+        {% block styles %}{% endblock %}
+    </style>
+</head>
+<body>
+    {% block body %}{% endblock %}
+</body>
+</html>

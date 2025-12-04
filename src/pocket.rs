@@ -85,12 +85,6 @@ impl IntoIterator for PocketTags {
     }
 }
 
-impl PocketTags {
-    fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-}
-
 #[derive(Debug, Deserialize)]
 pub struct Tag(pub String);
 

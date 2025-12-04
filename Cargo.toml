@@ -18,7 +18,7 @@ text-splitter = { version = "0.28.0", features = ["markdown"] }
 tokio = { version = "1.48.0", features = ["rt", "rt-multi-thread", "macros", "sync", "time"] }
 tokio-rusqlite = "0.7.0"
 axum = "0.8"
-maud = { version = "0.27", features = ["axum"] }
+askama = "0.14"
 pulldown-cmark = "0.13"
 urlencoding = "2.1"
 chrono = "0.4.42"
