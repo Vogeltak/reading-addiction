@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use axum::{
     Router,
-    extract::{Query, State},
+    extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     routing::get,
@@ -13,7 +13,6 @@ use chrono::{DateTime, Utc};
 use maud::{DOCTYPE, Markup, PreEscaped, html};
 use pulldown_cmark::{Options, Parser, html::push_html};
 use reqwest::Url;
-use serde::Deserialize;
 
 use crate::db::Db;
 
@@ -25,7 +24,7 @@ pub fn router(db: Db) -> Router {
     Router::new()
         .route("/", get(index))
         .route("/archived", get(archived))
-        .route("/article", get(article))
+        .route("/read/{id}", get(article))
         .with_state(state)
 }
 
@@ -57,7 +56,7 @@ fn render_item_list(items: &[ListItem]) -> Markup {
                 @let status = item.content_status();
                 li {
                     span class=(format!("status {}", status.css_class())) { (status.icon()) }
-                    a href=(format!("/article?id={}", &item.pub_id)) {
+                    a href=(format!("/read/{}", &item.pub_id)) {
                         @if item.title.is_empty() {
                             (item.url)
                         } @else {
@@ -120,16 +119,8 @@ async fn archived(State(db): State<AppState>) -> Markup {
     }
 }
 
-#[derive(Deserialize)]
-struct ArticleQuery {
-    id: String,
-}
-
-async fn article(
-    State(db): State<AppState>,
-    Query(query): Query<ArticleQuery>,
-) -> impl IntoResponse {
-    let article = match db.get_article_by_pub_id(query.id.clone()).await {
+async fn article(State(db): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
+    let article = match db.get_article_by_pub_id(id).await {
         Ok(Some(article)) => article,
         Ok(None) => {
             return (StatusCode::NOT_FOUND, "Article not found".to_string()).into_response();
@@ -165,13 +156,13 @@ async fn article(
                      h1 { font-size: 1.6rem; margin-bottom: 0.5rem; }
                      h2 { font-size: 1.4rem; }
                      hr { border: 1px dashed; }
-                     .meta { background: #f0eee6; color: #666; font-size: 0.9rem; border-radius: 16px; padding: 1px 1rem; }
+                     .meta { background: #f0eee6; color: #666; font-size: 0.9rem; border-radius: 16px; padding: 1px 1rem; box-shadow: 0 2px 8px #00000010; border: 1px solid #00000040; }
                      .meta a { color: #666; }
                      .origin { font-weight: bold; }
-                     .tag { background-color: #e1dac2; padding: 2px 4px; color: #333; }
+                     .tag { background-color: #e1dac2; padding: 2px 8px; color: #333; border-radius: 16px; box-shadow: 0 0 0 1px inset #00000030; }
                      .back { margin-bottom: 1rem; }
                      img { max-width: 100%; height: auto; }
-                     pre { overflow-x: auto; background: #f0ede5; padding: 1rem; border: 2px dashed black; }
+                     pre { overflow-x: auto; background: #f0ede5; padding: 1rem; border: 1px dashed black; }
                      code { background: #f0ede5; padding: 0.1rem 0.3rem; font-size: 16px; }
                      pre code { background: none; padding: 0; }
                      blockquote { border-left: 3px solid #ccc; margin-left: 0; padding-left: 1rem; color: #555; }"
