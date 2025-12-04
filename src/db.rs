@@ -280,20 +280,25 @@ impl Db {
     }
 
     pub async fn get_article_by_pub_id(&self, pub_id: String) -> Result<Option<Article>> {
-        let article: Option<(String, String, Option<String>)> = self
+        let article: Option<(String, String, Option<String>, Option<String>, String, i64, Option<i64>, Option<u16>)> = self
             .conn
             .call(move |conn| {
                 let mut stmt =
-                    conn.prepare("SELECT url, title, markdown FROM items WHERE pub_id = ?")?;
-                stmt.query_row([&pub_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+                    conn.prepare("SELECT url, title, markdown, tags, status, time_added, time_last_crawl, http_status_last_crawl FROM items WHERE pub_id = ?")?;
+                stmt.query_row([&pub_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?, row.get(6)?, row.get(7)?)))
                     .optional()
             })
             .await?;
 
-        Ok(article.map(|(url, title, markdown)| Article {
+        Ok(article.map(|(url, title, markdown, tags, status, time_added, time_last_crawl, http_status_last_crawl)| Article {
             url,
             title,
             markdown,
+            tags,
+            status,
+            time_added,
+            time_last_crawl,
+            http_status_last_crawl,
         }))
     }
 }
@@ -363,4 +368,9 @@ pub struct Article {
     pub url: String,
     pub title: String,
     pub markdown: Option<String>,
+    pub tags: Option<String>,
+    pub status: String,
+    pub time_added: i64,
+    pub time_last_crawl: Option<i64>,
+    pub http_status_last_crawl: Option<u16>,
 }

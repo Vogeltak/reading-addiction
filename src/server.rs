@@ -9,8 +9,10 @@ use axum::{
     response::IntoResponse,
     routing::get,
 };
+use chrono::{DateTime, Utc};
 use maud::{DOCTYPE, Markup, PreEscaped, html};
 use pulldown_cmark::{Options, Parser, html::push_html};
+use reqwest::Url;
 use serde::Deserialize;
 
 use crate::db::Db;
@@ -160,12 +162,16 @@ async fn article(
                 title { (&article.title) }
                 style {
                     "body { font-family: serif; max-width: 80ch; margin: 2rem auto; padding: 0 1rem; font-size: 18px; line-height: 1.6; background: #faf9f5; }
-                     h1 { margin-bottom: 0.5rem; }
-                     .meta { color: #666; font-size: 0.9rem; margin-bottom: 2rem; }
+                     h1 { font-size: 1.6rem; margin-bottom: 0.5rem; }
+                     h2 { font-size: 1.4rem; }
+                     hr { border: 1px dashed; }
+                     .meta { background: #f0eee6; color: #666; font-size: 0.9rem; border-radius: 16px; padding: 1px 1rem; }
                      .meta a { color: #666; }
+                     .origin { font-weight: bold; }
+                     .tag { background-color: #e1dac2; padding: 2px 4px; color: #333; }
                      .back { margin-bottom: 1rem; }
                      img { max-width: 100%; height: auto; }
-                     pre { overflow-x: auto; background: #f0ede5; padding: 1rem; }
+                     pre { overflow-x: auto; background: #f0ede5; padding: 1rem; border: 2px dashed black; }
                      code { background: #f0ede5; padding: 0.1rem 0.3rem; font-size: 16px; }
                      pre code { background: none; padding: 0; }
                      blockquote { border-left: 3px solid #ccc; margin-left: 0; padding-left: 1rem; color: #555; }"
@@ -173,10 +179,60 @@ async fn article(
             }
             body {
                 p class="back" { a href="/" { "← Back to list" } }
-                h1 { (&article.title) }
-                p class="meta" {
-                    a href=(&article.url) target="_blank" { "View original" }
+                div class="meta" {
+                    p {
+                        @let origin = Url::parse(&article.url).ok().and_then(|u| u.host_str().map(|s| s.to_string()));
+                        @if let Some(host) = origin {
+                            span class="origin" { (host) }
+                            span class="separator" { " · " }
+                        }
+                        a class="original-link" href=(&article.url) target="_blank" { "View original" }
+                        span class="separator" { " · " }
+                        span class="status" { (&article.status) }
+                    }
+                    p {
+                        @let added = DateTime::<Utc>::from_timestamp(article.time_added, 0);
+                        @if let Some(dt) = added {
+                            span class="time-added" {
+                                span class="label" { "Saved on " }
+                                span class="value" { (dt.format("%Y-%m-%d %H:%M")) }
+                            }
+                        }
+                        @if let Some(crawl_time) = article.time_last_crawl {
+                            @let crawled = DateTime::<Utc>::from_timestamp(crawl_time, 0);
+                            @if let Some(dt) = crawled {
+                                span class="separator" { " · " }
+                                span class="time-crawled" {
+                                    span class="label" { "Last crawled on " }
+                                    span class="value" { (dt.format("%Y-%m-%d %H:%M")) }
+                                }
+                            }
+                        }
+                        @if let Some(status) = article.http_status_last_crawl {
+                            span class="http-status" {
+                                " ("
+                                span class="value" { (status) }
+                                ")"
+                            }
+                        }
+                    }
+                    @if let Some(tags) = &article.tags {
+                        p {
+                            @let tag_list: Vec<&str> = tags.split(',').map(|t| t.trim()).filter(|t| !t.is_empty()).collect();
+                            @if !tag_list.is_empty() {
+                                span class="tags" {
+                                    @for (i, tag) in tag_list.iter().enumerate() {
+                                        span class="tag" { (tag) }
+                                        @if i < tag_list.len() - 1 {
+                                            " "
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
+                h1 { (&article.title) }
                 article {
                     (PreEscaped(html_content))
                 }
