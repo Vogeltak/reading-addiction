@@ -152,80 +152,102 @@ async fn article(State(db): State<AppState>, Path(id): Path<String>) -> impl Int
                 meta name="viewport" content="width=device-width, initial-scale=1";
                 title { (&article.title) }
                 style {
-                    "body { font-family: serif; max-width: 80ch; margin: 2rem auto; padding: 0 1rem; font-size: 18px; line-height: 1.6; background: #faf9f5; }
-                     h1 { font-size: 1.6rem; margin-bottom: 0.5rem; }
+                    "body { font-family: serif; margin: 2rem auto; padding: 0 1rem; font-size: 18px; line-height: 1.6; background: #faf9f5; }
+                     .layout { display: grid; grid-template-columns: 1fr; max-width: 80ch; margin: 0; }
+                     h1 { font-size: 1.6rem; margin-bottom: 0.5rem; margin-top: 0; }
                      h2 { font-size: 1.4rem; }
                      hr { border: 1px dashed; }
-                     .meta { background: #f0eee6; color: #666; font-size: 0.9rem; border-radius: 16px; padding: 1px 1rem; box-shadow: 0 2px 8px #00000010; border: 1px solid #00000040; }
+                     .meta { background: #f0eee6; color: #666; font-size: 0.9rem; margin-bottom: 1rem; border-radius: 16px; padding: 1px 1rem; box-shadow: 0 2px 8px #00000010; border: 1px solid #00000040; }
                      .meta a { color: #666; }
+                     .meta p { margin: 0.5rem 0; }
                      .origin { font-weight: bold; }
+                     .label { font-weight: bold; }
                      .tag { background-color: #e1dac2; padding: 2px 8px; color: #333; border-radius: 16px; box-shadow: 0 0 0 1px inset #00000030; }
-                     .back { margin-bottom: 1rem; }
                      img { max-width: 100%; height: auto; }
                      pre { overflow-x: auto; background: #f0ede5; padding: 1rem; border: 1px dashed black; }
                      code { background: #f0ede5; padding: 0.1rem 0.3rem; font-size: 16px; }
                      pre code { background: none; padding: 0; }
-                     blockquote { border-left: 3px solid #ccc; margin-left: 0; padding-left: 1rem; color: #555; }"
+                     blockquote { border-left: 3px solid #ccc; margin-left: 0; padding-left: 1rem; color: #555; }
+                     .meta-details { margin-bottom: 1rem; }
+                     .meta-details summary { cursor: pointer; font-size: 0.9rem; color: #666; }
+                     .content { min-width: 0; }
+                     @media (min-width: 1100px) {
+                       .layout { display: grid; grid-template-columns: 220px 1fr; gap: 2rem; max-width: calc(80ch + 220px + 2rem); }
+                       .meta { position: sticky; top: 2rem; align-self: start; padding: 0.5rem 1rem; }
+                       .meta-details[open] summary { display: none; }
+                       .meta-details { margin-bottom: 0; }
+                       .meta-details summary { display: none; }
+                       .meta-details[open] .meta, .meta-details .meta { display: block; }
+                     }
+                     @media (max-width: 1099px) {
+                       .meta-details:not([open]) .meta { display: none; }
+                     }"
                 }
             }
             body {
-                p class="back" { a href="/" { "← Back to list" } }
-                div class="meta" {
-                    p {
-                        @let origin = Url::parse(&article.url).ok().and_then(|u| u.host_str().map(|s| s.to_string()));
-                        @if let Some(host) = origin {
-                            span class="origin" { (host) }
-                            span class="separator" { " · " }
-                        }
-                        a class="original-link" href=(&article.url) target="_blank" { "View original" }
-                        span class="separator" { " · " }
-                        span class="status" { (&article.status) }
-                    }
-                    p {
-                        @let added = DateTime::<Utc>::from_timestamp(article.time_added, 0);
-                        @if let Some(dt) = added {
-                            span class="time-added" {
-                                span class="label" { "Saved on " }
-                                span class="value" { (dt.format("%Y-%m-%d %H:%M")) }
+                div class="layout" {
+                    details class="meta" open {
+                        summary {
+                            @let origin = Url::parse(&article.url).ok().and_then(|u| u.host_str().map(|s| s.to_string()));
+                            @if let Some(host) = origin {
+                                span class="origin" { (host) }
                             }
                         }
-                        @if let Some(crawl_time) = article.time_last_crawl {
-                            @let crawled = DateTime::<Utc>::from_timestamp(crawl_time, 0);
-                            @if let Some(dt) = crawled {
-                                span class="separator" { " · " }
-                                span class="time-crawled" {
-                                    span class="label" { "Last crawled on " }
-                                    span class="value" { (dt.format("%Y-%m-%d %H:%M")) }
+                        div {
+                            p {
+                                div { a class="original-link" href=(&article.url) target="_blank" { "View original" } }
+                                div class="status" { (&article.status) }
+                            }
+                            p {
+                                @let added = DateTime::<Utc>::from_timestamp(article.time_added, 0);
+                                @if let Some(dt) = added {
+                                    div class="time-added" {
+                                        div class="label" { "Saved" }
+                                        div class="value" { (dt.format("%Y-%m-%d %H:%M")) }
+                                    }
+                                }
+                                @if let Some(crawl_time) = article.time_last_crawl {
+                                    @let crawled = DateTime::<Utc>::from_timestamp(crawl_time, 0);
+                                    @if let Some(dt) = crawled {
+                                        div class="time-crawled" {
+                                            div class="label" { "Last crawl" }
+                                            div class="value" {
+                                                (dt.format("%Y-%m-%d %H:%M"))
+                                                @if let Some(status) = article.http_status_last_crawl {
+                                                    span class="http-status" {
+                                                        " ("
+                                                        span class="value" { (status) }
+                                                        ")"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
-                        }
-                        @if let Some(status) = article.http_status_last_crawl {
-                            span class="http-status" {
-                                " ("
-                                span class="value" { (status) }
-                                ")"
-                            }
-                        }
-                    }
-                    @if let Some(tags) = &article.tags {
-                        p {
-                            @let tag_list: Vec<&str> = tags.split(',').map(|t| t.trim()).filter(|t| !t.is_empty()).collect();
-                            @if !tag_list.is_empty() {
-                                span class="tags" {
-                                    @for (i, tag) in tag_list.iter().enumerate() {
-                                        span class="tag" { (tag) }
-                                        @if i < tag_list.len() - 1 {
-                                            " "
+                            @if let Some(tags) = &article.tags {
+                                p {
+                                    @let tag_list: Vec<&str> = tags.split(',').map(|t| t.trim()).filter(|t| !t.is_empty()).collect();
+                                    @if !tag_list.is_empty() {
+                                        div class="tags" {
+                                            @for (i, tag) in tag_list.iter().enumerate() {
+                                                span class="tag" { (tag) }
+                                                @if i < tag_list.len() - 1 {
+                                                    " "
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                }
-                h1 { (&article.title) }
-                article {
-                    (PreEscaped(html_content))
+                    div class="content" {
+                        h1 { (&article.title) }
+                        article {
+                            (PreEscaped(html_content))
+                        }
+                    }
                 }
             }
         }
