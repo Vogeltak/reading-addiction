@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Marxive - Reading List{% endblock %}</title>
     <style>
+        * {
+            --bg-color: #faf9f5;
+            --dark-bg-color: #161616;
+            --text-color: black;
+            --dark-text-color: #f1f1f1;
+        }
         body {
             font-family: serif;
             font-size: 18px;
@@ -16,11 +22,13 @@
         header {
             border-bottom: 1px dashed black;
             margin-bottom: 1rem;
-            padding: 8px 0;
+            padding: 0;
+            text-align: center;
         }
 
         header a {
             color: black;
+            font-size: 1.3rem;
             font-weight: bold;
             padding: 4px 0;
             text-decoration: none;

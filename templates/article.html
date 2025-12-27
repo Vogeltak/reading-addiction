@@ -24,7 +24,7 @@ body {
     font-size: 0.9rem;
     margin-bottom: 1rem;
     border-radius: 16px;
-    padding: 1px 1rem;
+    padding: 0.5rem 1rem;
     box-shadow: 0 2px 8px #00000010;
     border: 1px solid #00000040;
 }
@@ -37,22 +37,17 @@ body {
     margin: 0.5rem 0;
 }
 
-.meta-details {
-    margin-bottom: 1rem;
-}
-
-.meta-details summary {
+.meta-summary {
     cursor: pointer;
-    font-size: 0.9rem;
-    color: #666;
-}
-
-.origin {
     font-weight: bold;
 }
 
 .label {
     font-weight: bold;
+}
+
+.tags {
+    line-height: 2rem;
 }
 
 .tag {
@@ -63,42 +58,22 @@ body {
     box-shadow: 0 0 0 1px inset #00000030;
 }
 
+article {
+    word-wrap: break-word;
+}
+
 @media (min-width: 1100px) {
     .layout {
         display: grid;
-        grid-template-columns: 220px 1fr;
+        grid-template-columns: 300px 1fr;
         gap: 2rem;
-        max-width: calc(80ch + 220px + 2rem);
+        max-width: calc(80ch + 300px + 2rem);
     }
 
     .meta {
         position: sticky;
-        top: 2rem;
+        top: 1rem;
         align-self: start;
-        padding: 0.5rem 1rem;
-    }
-
-    .meta-details {
-        margin-bottom: 0;
-    }
-
-    .meta-details summary {
-        display: none;
-    }
-
-    .meta-details[open] summary {
-        display: none;
-    }
-
-    .meta-details[open] .meta,
-    .meta-details .meta {
-        display: block;
-    }
-}
-
-@media (max-width: 1099px) {
-    .meta-details:not([open]) .meta {
-        display: none;
     }
 }
 {% endblock %}
@@ -106,7 +81,7 @@ body {
 {% block body %}
 <div class="layout">
     <details class="meta" open>
-        <summary>
+        <summary class="meta-summary">
             {% if let Some(host) = origin %}
             <span class="origin">{{ host }}</span>
             {% endif %}
