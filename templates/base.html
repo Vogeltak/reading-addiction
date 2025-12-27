@@ -6,32 +6,58 @@
     <title>{% block title %}Marxive - Reading List{% endblock %}</title>
     <style>
         * {
-            --bg-color: #faf9f5;
-            --dark-bg-color: #161616;
-            --text-color: black;
-            --dark-text-color: #f1f1f1;
+            --bg-000: #f0ede5;
+            --bg-100: #faf9f5;
+            --bg-200: #f0eee6;
+            --bg-300: hsl(48 25% 92.2%);
+            --border-100: black;
+            --text-100: black;
+            --text-200: #555;
+            --link-100: blue;
+            --link-200: darkorchid;
         }
+
+        @media (prefers-color-scheme: dark) {
+            * {
+                --bg-000: hsl(60 2.1% 18.4%);
+                --bg-100: black;
+                --bg-200: hsl(30 3.3% 11.8%);
+                --bg-300: hsl(60 2.6% 7.6%);
+                --border-100: hsl(51 16.5% 84.5%);
+                --text-100: hsl(48 33.3% 97.1%);
+                --text-200: hsl(50 9% 73.7%);
+                --link-100: dodgerblue;
+                --link-200: orchid;
+            }
+        }
+
         body {
             font-family: serif;
             font-size: 18px;
             margin: 0 auto 2rem auto;
             padding: 0 1rem;
-            background: #faf9f5;
+            background: var(--bg-100);
+            color: var(--text-100);
+            word-wrap: break-word;
         }
 
         header {
-            border-bottom: 1px dashed black;
+            border-bottom: 1px dashed var(--border-100);
             margin-bottom: 1rem;
             padding: 0;
             text-align: center;
         }
 
         header a {
-            color: black;
+            color: var(--text-100);
             font-size: 1.3rem;
             font-weight: bold;
             padding: 4px 0;
             text-decoration: none;
+        }
+
+        header a:visited {
+            color: var(--text-100);
         }
 
         header a:hover {
@@ -39,8 +65,17 @@
             text-decoration: underline;
         }
 
+        a {
+            color: var(--link-100);
+        }
+
+        a:visited {
+            color: var(--link-200);
+        }
+
         a:hover {
-            background: #e9e6da;
+            background: var(--bg-300);
+            text-decoration-style: dotted;
         }
 
         h1 {
@@ -60,13 +95,13 @@
 
         pre {
             overflow-x: auto;
-            background: #f0ede5;
+            background: var(--bg-000);
             padding: 1rem;
-            border: 1px dashed black;
+            border: 1px dashed var(--border-100);
         }
 
         code {
-            background: #f0ede5;
+            background: var(--bg-000);
             padding: 0.1rem 0.3rem;
             font-size: 16px;
         }
@@ -80,7 +115,7 @@
             border-left: 3px solid #ccc;
             margin-left: 0;
             padding-left: 1rem;
-            color: #555;
+            color: var(--text-200);
         }
 
         hr {
