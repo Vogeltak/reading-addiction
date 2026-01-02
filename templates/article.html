@@ -11,7 +11,7 @@ body {
     display: grid;
     grid-template-columns: 1fr;
     max-width: 80ch;
-    margin: 0;
+    margin: 0 auto;
 }
 
 .content {
@@ -19,14 +19,11 @@ body {
 }
 
 .meta {
-    background: var(--bg-200);
     color: var(--text-200);
     font-size: 0.9rem;
     margin-bottom: 1rem;
     border-radius: 16px;
     padding: 0.5rem 1rem;
-    box-shadow: 0 2px 8px #00000010;
-    border: 1px solid #00000040;
 }
 
 .meta a {
@@ -51,11 +48,9 @@ body {
 }
 
 .tag {
-    background-color: #e1dac2;
-    padding: 2px 8px;
-    color: #333;
+    background-color: var(--bg-200);
     border-radius: 16px;
-    box-shadow: 0 0 0 1px inset #00000030;
+    padding: 2px 10px;
 }
 
 article {
@@ -65,7 +60,7 @@ article {
 @media (min-width: 1100px) {
     .layout {
         display: grid;
-        grid-template-columns: 300px 1fr;
+        grid-template-columns: 1fr 300px;
         gap: 2rem;
         max-width: calc(80ch + 300px + 2rem);
     }
@@ -80,6 +75,12 @@ article {
 
 {% block body %}
 <div class="layout">
+    <div class="content">
+        <h1>{{ article.title }}</h1>
+        <article>
+            {{ html_content|safe }}
+        </article>
+    </div>
     <details class="meta" open>
         <summary class="meta-summary">
             {% if let Some(host) = origin %}
@@ -121,11 +122,5 @@ article {
             {% endif %}
         </div>
     </details>
-    <div class="content">
-        <h1>{{ article.title }}</h1>
-        <article>
-            {{ html_content|safe }}
-        </article>
-    </div>
 </div>
 {% endblock %}
