@@ -39,8 +39,48 @@ body {
     font-weight: bold;
 }
 
+.switch {
+    display: flex;
+}
+
+.switch > a {
+    background: var(--bg-200);
+    padding: 4px 8px;
+}
+
+.switch > a:first-child {
+    border-top-left-radius: 16px;
+    border-bottom-left-radius: 32px;
+    padding-left: 16px;
+}
+
+.switch > a:last-child {
+    border-top-right-radius: 32px;
+    border-bottom-right-radius: 16px;
+    padding-right: 16px;
+}
+
+.switch > a.current {
+    background: var(--bg-300);
+    color: var(--text-100);
+}
+
+.switch > a:not(.current):hover {
+    background: var(--bg-300);
+    color: var(--text-100);
+}
+
+.meta-item {
+    display: flex;
+    justify-content: space-between;
+}
+
 .label {
     font-weight: bold;
+}
+
+.http-status {
+    display: none;
 }
 
 .tags {
@@ -90,17 +130,22 @@ article {
         <div>
             <p>
                 <div><a class="original-link" href="{{ article.url }}" target="_blank">View original</a></div>
-                <div class="status">{{ article.status }}</div>
+            </p>
+            <p>
+                <div class="status switch">
+                    <a {% if article.status == "unread" %}class="current"{% else %}href="#"{% endif %}>unread</a>
+                    <a {% if article.status == "archive" %}class="current"{% else %}href="#"{% endif %}>archive</a>
+                </div>
             </p>
             <p>
                 {% if let Some(dt) = time_added %}
-                <div class="time-added">
+                <div class="time-added meta-item">
                     <div class="label">Saved</div>
                     <div class="value">{{ dt.format("%Y-%m-%d %H:%M") }}</div>
                 </div>
                 {% endif %}
                 {% if let Some(dt) = time_crawled %}
-                <div class="time-crawled">
+                <div class="time-crawled meta-item">
                     <div class="label">Last crawl</div>
                     <div class="value">
                         {{ dt.format("%Y-%m-%d %H:%M") }}
