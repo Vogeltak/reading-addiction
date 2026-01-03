@@ -10,19 +10,23 @@ body {
 .layout {
     display: grid;
     grid-template-columns: 1fr;
+    grid-template-areas: "meta" "content";
     max-width: 80ch;
     margin: 0 auto;
 }
 
 .content {
+    grid-area: content;
     min-width: 0;
 }
 
 .meta {
+    background: var(--bg-200);
     color: var(--text-200);
     font-size: 0.9rem;
+    grid-area: meta;
     margin-bottom: 1rem;
-    border-radius: 16px;
+    border-radius: 24px;
     padding: 0.5rem 1rem;
 }
 
@@ -39,12 +43,22 @@ body {
     font-weight: bold;
 }
 
+.meta-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.meta-details .switch {
+    align-self: center;
+}
+
 .switch {
     display: flex;
 }
 
 .switch > a {
-    background: var(--bg-200);
+    background: var(--bg-300);
     padding: 4px 8px;
 }
 
@@ -61,12 +75,12 @@ body {
 }
 
 .switch > a.current {
-    background: var(--bg-300);
+    background: var(--bg-400);
     color: var(--text-100);
 }
 
 .switch > a:not(.current):hover {
-    background: var(--bg-300);
+    background: var(--bg-400);
     color: var(--text-100);
 }
 
@@ -88,7 +102,7 @@ body {
 }
 
 .tag {
-    background-color: var(--bg-200);
+    background-color: var(--bg-300);
     border-radius: 16px;
     padding: 2px 10px;
 }
@@ -101,11 +115,13 @@ article {
     .layout {
         display: grid;
         grid-template-columns: 1fr 300px;
+        grid-template-areas: "content meta";
         gap: 2rem;
         max-width: calc(80ch + 300px + 2rem);
     }
 
     .meta {
+        background: none;
         position: sticky;
         top: 1rem;
         align-self: start;
@@ -127,44 +143,46 @@ article {
             <span class="origin">{{ host }}</span>
             {% endif %}
         </summary>
-        <div>
-            <p>
-                <div><a class="original-link" href="{{ article.url }}" target="_blank">View original</a></div>
-            </p>
-            <p>
-                <div class="status switch">
-                    <a {% if article.status == "unread" %}class="current"{% else %}href="#"{% endif %}>unread</a>
-                    <a {% if article.status == "archive" %}class="current"{% else %}href="#"{% endif %}>archive</a>
-                </div>
-            </p>
-            <p>
-                {% if let Some(dt) = time_added %}
+        <div class="meta-details">
+            <div><a class="original-link" href="{{ article.url }}" target="_blank">View original</a></div>
+            <div class="status switch">
+                <a {% if article.status == "unread" %}class="current"{% else %}href="#"{% endif %}>unread</a>
+                <a {% if article.status == "archive" %}class="current"{% else %}href="#"{% endif %}>archive</a>
+            </div>
+            <div>
+                {%- if let Some(dt) = time_added -%}
                 <div class="time-added meta-item">
                     <div class="label">Saved</div>
                     <div class="value">{{ dt.format("%Y-%m-%d %H:%M") }}</div>
                 </div>
-                {% endif %}
-                {% if let Some(dt) = time_crawled %}
+                {%- endif -%}
+                {%- if let Some(dt) = time_crawled -%}
                 <div class="time-crawled meta-item">
                     <div class="label">Last crawl</div>
                     <div class="value">
                         {{ dt.format("%Y-%m-%d %H:%M") }}
-                        {% if let Some(status) = article.http_status_last_crawl %}
+                        {%- if let Some(status) = article.http_status_last_crawl -%}
                         <span class="http-status"> (<span class="value">{{ status }}</span>)</span>
-                        {% endif %}
+                        {%- endif -%}
                     </div>
                 </div>
-                {% endif %}
-            </p>
-            {% if !tag_list.is_empty() %}
-            <p>
-                <div class="tags">
-                    {% for tag in tag_list %}
-                    <span class="tag">{{ tag }}</span>{% if !loop.last %} {% endif %}
-                    {% endfor %}
+                {%- endif -%}
+                <div class="meta-item">
+                    <div class="label">Words</div>
+                    <div class="value">{{ html_content|wordcount }}</div>
                 </div>
-            </p>
-            {% endif %}
+                <div class="meta-item">
+                    <div class="label">Reading time</div>
+                    <div class="value">{{ html_content|wordcount / 180 }} minutes</div>
+                </div>
+            </div>
+            {%- if !tag_list.is_empty() -%}
+            <div class="tags">
+                {%- for tag in tag_list -%}
+                <span class="tag">{{ tag }}</span>{% if !loop.last %} {% endif %}
+                {%- endfor -%}
+            </div>
+            {%- endif -%}
         </div>
     </details>
 </div>
