@@ -24,10 +24,6 @@ nav {
     margin-bottom: 1rem;
 }
 
-nav a {
-    margin-right: 1rem;
-}
-
 .count {
     color: #666;
     font-size: 0.9rem;
@@ -64,8 +60,10 @@ nav a {
 
 {% block body %}
 <nav>
-    <a href="/">Unread</a>
-    <a href="/archived">Archived</a>
+    <div class="switch">
+        <a {% if heading == "Unread articles" %}class="current"{% else %}href="/"{% endif %}>Unread</a>
+        <a {% if heading == "Archived articles" %}class="current"{% else %}href="/archived"{% endif %}>Archived</a>
+    </div>
 </nav>
 <h1>{{ heading }}</h1>
 <p class="count">{{ items.len() }} articles</p>
