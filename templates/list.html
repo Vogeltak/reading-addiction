@@ -46,6 +46,13 @@ nav {
     display: none;
 }
 
+.byline {
+    color: var(--text-200);
+    display: flex;
+    font-size: 0.9rem;
+    gap: 0.25rem;
+}
+
 @media (min-width: 768px) {
     ul {
         columns: 2;
@@ -71,14 +78,23 @@ nav {
     {% for item in items %}
     {% let status = item.content_status() %}
     <li>
-        <span class="status {{ status.css_class() }}">{{ status.icon() }}</span>
-        <a href="/read/{{ item.pub_id }}">
-            {% if item.title.is_empty() %}
-            {{ item.url }}
-            {% else %}
-            {{ item.title }}
-            {% endif %}
-        </a>
+        <div>
+            <span class="status {{ status.css_class() }}">{{ status.icon() }}</span>
+            <a href="/read/{{ item.pub_id }}">
+                {% if item.title.is_empty() %}
+                {{ item.url }}
+                {% else %}
+                {{ item.title }}
+                {% endif %}
+            </a>
+        </div>
+        <div class="byline">
+            {%- if let Some(dt) = item.time_added -%}
+            <span class="date">{{ dt.format("%Y-%m-%d") }}</span>
+            <span>—</span>
+            {%- endif -%}
+            <span class="origin">{{ item.url }}</span>
+        </div>
     </li>
     {% endfor %}
 </ul>

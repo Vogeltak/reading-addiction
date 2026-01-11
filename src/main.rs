@@ -104,8 +104,6 @@ async fn main() -> Result<()> {
             // Results channel for work output
             let (results_tx, mut results_rx) = mpsc::channel(64);
 
-            let worker_tx = results_tx.clone();
-
             // Spawn a Seeder task so we can start consuming results while
             // we're still pushing work on the queue.
             tokio::spawn(async move {
@@ -113,14 +111,11 @@ async fn main() -> Result<()> {
                     let _ = work_q
                         .send(WorkItem {
                             url: c.url,
-                            circle_back: worker_tx.clone(),
+                            circle_back: results_tx.clone(),
                         })
                         .await;
                 }
             });
-
-            // Prevent that we keep one sender open!
-            drop(results_tx);
 
             while let Some(worker_output) = results_rx.recv().await {
                 match worker_output {

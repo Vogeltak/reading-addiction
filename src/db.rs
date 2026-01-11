@@ -3,6 +3,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use reqwest::Url;
 use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
@@ -206,23 +207,31 @@ impl Db {
     }
 
     pub async fn get_unread_items(&self) -> Result<Vec<ListItem>> {
-        let items: Vec<(String, String, String, Option<usize>)> = self
+        let items: Vec<(String, String, String, i64, Option<usize>)> = self
             .conn
             .call(move |conn| {
                 let mut stmt = conn.prepare(
-                    "SELECT pub_id, url, title, LENGTH(markdown) FROM items WHERE status = 'unread' ORDER BY time_added DESC",
+                    "SELECT pub_id, url, title, time_added, LENGTH(markdown) FROM items WHERE status = 'unread' ORDER BY time_added DESC",
                 )?;
-                stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))?
+                stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)))?
                     .collect()
             })
             .await?;
 
         let items = items
             .into_iter()
-            .map(|(pub_id, url, title, markdown_len)| ListItem {
+            .map(|(pub_id, url, title, time_added, markdown_len)| ListItem {
                 pub_id,
-                url,
+                url: Url::parse(&url)
+                    .ok()
+                    .and_then(|u| {
+                        u.host_str()
+                            .map(|s| s.strip_prefix("www.").unwrap_or(s))
+                            .map(|s| s.to_string())
+                    })
+                    .unwrap_or(url),
                 title,
+                time_added: DateTime::<Utc>::from_timestamp(time_added, 0),
                 markdown_len,
             })
             .collect();
@@ -231,23 +240,31 @@ impl Db {
     }
 
     pub async fn get_archived_items(&self) -> Result<Vec<ListItem>> {
-        let items: Vec<(String, String, String, Option<usize>)> = self
+        let items: Vec<(String, String, String, i64, Option<usize>)> = self
             .conn
             .call(move |conn| {
                 let mut stmt = conn.prepare(
-                    "SELECT pub_id, url, title, LENGTH(markdown) FROM items WHERE status = 'archive' ORDER BY time_added DESC",
+                    "SELECT pub_id, url, title, time_added, LENGTH(markdown) FROM items WHERE status = 'archive' ORDER BY time_added DESC",
                 )?;
-                stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))?
+                stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)))?
                     .collect()
             })
             .await?;
 
         let items = items
             .into_iter()
-            .map(|(pub_id, url, title, markdown_len)| ListItem {
+            .map(|(pub_id, url, title, time_added, markdown_len)| ListItem {
                 pub_id,
-                url,
+                url: Url::parse(&url)
+                    .ok()
+                    .and_then(|u| {
+                        u.host_str()
+                            .map(|s| s.strip_prefix("www.").unwrap_or(s))
+                            .map(|s| s.to_string())
+                    })
+                    .unwrap_or(url),
                 title,
+                time_added: DateTime::<Utc>::from_timestamp(time_added, 0),
                 markdown_len,
             })
             .collect();
@@ -290,16 +307,27 @@ impl Db {
             })
             .await?;
 
-        Ok(article.map(|(url, title, markdown, tags, status, time_added, time_last_crawl, http_status_last_crawl)| Article {
-            url,
-            title,
-            markdown,
-            tags,
-            status,
-            time_added,
-            time_last_crawl,
-            http_status_last_crawl,
-        }))
+        Ok(article.map(
+            |(
+                url,
+                title,
+                markdown,
+                tags,
+                status,
+                time_added,
+                time_last_crawl,
+                http_status_last_crawl,
+            )| Article {
+                url,
+                title,
+                markdown,
+                tags,
+                status,
+                time_added,
+                time_last_crawl,
+                http_status_last_crawl,
+            },
+        ))
     }
 }
 
@@ -325,6 +353,7 @@ pub struct ListItem {
     pub pub_id: String,
     pub url: String,
     pub title: String,
+    pub time_added: Option<DateTime<Utc>>,
     pub markdown_len: Option<usize>,
 }
 
