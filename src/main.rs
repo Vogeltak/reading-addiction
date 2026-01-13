@@ -1,20 +1,30 @@
 use std::{collections::HashMap, fs::File, iter::zip, path::PathBuf};
 
-use anyhow::{Context, Result, anyhow};
-use clap::{Parser, Subcommand};
-
-use ndarray::{Array1, Array2, Axis};
-use reading_addiction::{
-    USER_AGENT,
+use crate::{
     db::Db,
     pocket::PocketReader,
-    server,
     worker::{WorkItem, spawn_worker},
 };
+
+use anyhow::{Context, Result, anyhow};
+use clap::{Parser, Subcommand};
+use ndarray::{Array1, Array2, Axis};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use text_splitter::MarkdownSplitter;
 use tokio::{sync::mpsc, task::JoinSet};
+
+mod db;
+mod pocket;
+mod server;
+mod worker;
+
+pub static USER_AGENT: &str = concat!(
+    env!("CARGO_PKG_NAME"),
+    "/",
+    env!("CARGO_PKG_VERSION"),
+    " bot"
+);
 
 const DB_NAME: &str = "addiction.db";
 
