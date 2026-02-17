@@ -1,5 +1,4 @@
 //! Web crawler and parser.
-
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Result, anyhow};
@@ -7,6 +6,84 @@ use async_channel::Receiver;
 use dom_smoothie::{Config, Readability, TextMode};
 use reqwest::{Client, StatusCode, Url};
 use tokio::sync::mpsc;
+use tokio::task::JoinSet;
+
+use crate::db::Db;
+
+pub static USER_AGENT: &str = concat!(
+    env!("CARGO_PKG_NAME"),
+    "/",
+    env!("CARGO_PKG_VERSION"),
+    " bot"
+);
+
+pub struct Crawler {
+    db: Db,
+    client: reqwest::Client,
+}
+
+impl Crawler {
+    pub fn new(db: Db) -> Result<Self> {
+        // Create an HTTP client that can be shared (internal connection pool).
+        let client = Client::builder().user_agent(USER_AGENT).build()?;
+
+        Ok(Self { db, client })
+    }
+
+    pub async fn crawl_batch(&self, limit: Option<usize>) -> Result<()> {
+        // Create channel for distributing work items.
+        let (work_q, r) = async_channel::bounded(64);
+
+        // Spawn a pool of worker tasks for crawling and cleaning.
+        let mut workers = JoinSet::new();
+        for _ in 0..16 {
+            let r_i = r.clone();
+            let c_i = self.client.clone();
+            workers.spawn(async move { spawn_worker(c_i, r_i).await });
+        }
+
+        let candidates = self.db.get_uncrawled_items(limit).await?;
+        println!("Found {} candidates for crawling", candidates.len());
+
+        // Results channel for work output
+        let (results_tx, mut results_rx) = mpsc::channel(64);
+
+        // Spawn a Seeder task so we can start consuming results while
+        // we're still pushing work on the queue.
+        tokio::spawn(async move {
+            for c in candidates {
+                let _ = work_q
+                    .send(WorkItem {
+                        url: c.url,
+                        circle_back: results_tx.clone(),
+                    })
+                    .await;
+            }
+        });
+
+        while let Some(worker_output) = results_rx.recv().await {
+            match worker_output {
+                Ok(article) => {
+                    // Update our database with the extracted content
+                    println!(
+                        "{} - {} {} bytes of text, ~{} tokens",
+                        article.status,
+                        article.url,
+                        article.markdown.len(),
+                        article.markdown.len() / 4
+                    );
+                    self.db.save_crawl(article).await?;
+                }
+                Err(err) => eprintln!("Worker error: {err}"),
+            }
+        }
+
+        // Wait for our full worker pool to finish cleaning up.
+        let _report_cards = workers.join_all().await;
+
+        Ok(())
+    }
+}
 
 pub type WorkerInbox = Receiver<WorkItem>;
 pub type WorkerOutput = Result<CrawledArticle>;

@@ -9,7 +9,7 @@ use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
 use tokio_rusqlite::Connection;
 
-use crate::{pocket::PocketItem, worker::CrawledArticle};
+use crate::{pocket::PocketItem, services::crawler::CrawledArticle};
 
 /// Data store backed by SQLite.
 pub struct Db {

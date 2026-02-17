@@ -1,10 +1,6 @@
 use std::{collections::HashMap, fs::File, iter::zip, path::PathBuf};
 
-use crate::{
-    db::Db,
-    pocket::PocketReader,
-    worker::{WorkItem, spawn_worker},
-};
+use crate::{db::Db, pocket::PocketReader, services::crawler::Crawler};
 
 use anyhow::{Context, Result, anyhow};
 use clap::{Parser, Subcommand};
@@ -12,19 +8,11 @@ use ndarray::{Array1, Array2, Axis};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use text_splitter::MarkdownSplitter;
-use tokio::{sync::mpsc, task::JoinSet};
 
 mod db;
 mod pocket;
 mod server;
-mod worker;
-
-pub static USER_AGENT: &str = concat!(
-    env!("CARGO_PKG_NAME"),
-    "/",
-    env!("CARGO_PKG_VERSION"),
-    " bot"
-);
+mod services;
 
 const DB_NAME: &str = "addiction.db";
 
@@ -94,58 +82,8 @@ async fn main() -> Result<()> {
             }
         }
         Some(Commands::Crawl { n }) => {
-            // Create channel for distributing work items.
-            let (work_q, r) = async_channel::bounded(64);
-
-            // Create an HTTP client that can be shared (internal connection pool).
-            let client = Client::builder().user_agent(USER_AGENT).build()?;
-
-            // Spawn a pool of worker tasks for crawling and cleaning.
-            let mut workers = JoinSet::new();
-            for _ in 0..16 {
-                let r_i = r.clone();
-                let c_i = client.clone();
-                workers.spawn(async move { spawn_worker(c_i, r_i).await });
-            }
-
-            let candidates = db.get_uncrawled_items(n).await?;
-            println!("Found {} candidates for crawling", candidates.len());
-
-            // Results channel for work output
-            let (results_tx, mut results_rx) = mpsc::channel(64);
-
-            // Spawn a Seeder task so we can start consuming results while
-            // we're still pushing work on the queue.
-            tokio::spawn(async move {
-                for c in candidates {
-                    let _ = work_q
-                        .send(WorkItem {
-                            url: c.url,
-                            circle_back: results_tx.clone(),
-                        })
-                        .await;
-                }
-            });
-
-            while let Some(worker_output) = results_rx.recv().await {
-                match worker_output {
-                    Ok(article) => {
-                        // Update our database with the extracted content
-                        println!(
-                            "{} - {} {} bytes of text, ~{} tokens",
-                            article.status,
-                            article.url,
-                            article.markdown.len(),
-                            article.markdown.len() / 4
-                        );
-                        db.save_crawl(article).await?;
-                    }
-                    Err(err) => eprintln!("Worker error: {err}"),
-                }
-            }
-
-            // Wait for our full worker pool to finish cleaning up.
-            let _report_cards = workers.join_all().await;
+            let crawler = Crawler::new(db)?;
+            crawler.crawl_batch(n).await?;
         }
         Some(Commands::Histogram) => {
             let hist: HashMap<u16, usize> = db
