@@ -52,7 +52,7 @@ enum Commands {
     Cluster,
     /// start the web server
     Serve {
-        /// port to listen on [default: 3000]
+        /// port to listen on
         #[arg(short, long, default_value = "3000")]
         port: u16,
     },

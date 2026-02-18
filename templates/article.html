@@ -58,6 +58,10 @@ body {
     justify-content: space-between;
 }
 
+.meta-item.links {
+    justify-content: space-evenly;
+}
+
 .label {
     font-weight: bold;
 }
@@ -113,7 +117,11 @@ article {
             {% endif %}
         </summary>
         <div class="meta-details">
-            <div><a class="original-link" href="{{ article.url }}" target="_blank">View original</a></div>
+            <div class="meta-item links">
+                <a href="{{ article.url }}" target="_blank">🔗 Original</a>
+                <a href="https://web.archive.org/{{ article.url }}" target="_blank">🔗 Archived</a>
+                <a href="https://archive.ph/{{ article.url }}" target="_blank">🔗 Archive.is</a>
+            </div>
             <div class="status switch">
                 <a {% if article.status == "unread" %}class="current"{% else %}href="#"{% endif %}>unread</a>
                 <a {% if article.status == "archive" %}class="current"{% else %}href="#"{% endif %}>archive</a>
