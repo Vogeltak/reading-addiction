@@ -38,9 +38,10 @@ body {
     margin: 0.5rem 0;
 }
 
-.meta-summary {
+details > summary {
     cursor: pointer;
     font-weight: bold;
+    padding: 4px 0;
 }
 
 .meta-details {
@@ -81,10 +82,58 @@ body {
 }
 
 .toc {
+    display: none;
     border-radius: 16px;
+    margin-top: 1em;
 }
 
-.toc > ul {
+.toc ul {
+    list-style: arabic-indic;
+    margin: 0;
+    padding-left: 1em;
+}
+
+.toc-btn {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    border: none;
+    background: var(--bg-300);
+    color: var(--text-100);
+    font-size: 1.4rem;
+    cursor: pointer;
+    z-index: 10;
+    line-height: 1;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.toc-btn:hover {
+    background: var(--bg-400);
+}
+
+.toc-popover {
+    position: fixed;
+    inset: auto 1.5rem 5rem auto;
+    margin: 0;
+    background: var(--bg-200);
+    color: var(--text-100);
+    border: none;
+    border-radius: 24px;
+    padding: 1rem 1.5rem;
+    max-height: 60vh;
+    overflow-y: auto;
+    font-size: 0.95rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.toc-popover::backdrop {
+    background: none;
+}
+
+.toc-popover ul {
     list-style: arabic-indic;
     margin: 0;
     padding-left: 1em;
@@ -108,6 +157,15 @@ article {
         position: sticky;
         top: 1rem;
         align-self: start;
+    }
+
+    .toc {
+        display: block;
+    }
+
+    .toc-btn,
+    .toc-popover {
+        display: none;
     }
 }
 {% endblock %}
@@ -174,13 +232,43 @@ article {
             </div>
         </details>
         <details class="toc" open>
-            <summary class="label">Contents</summary>
+            <summary>Contents</summary>
             <ul>
-                <li><a href="#">The orchid and the moth</a></li>
-                <li><a href="#">Finding a shared path</a></li>
-                <li><a href="#">Banking crypto is a risky endeavor</a></li>
+                <li><a href="#:~:text=A%20heartfelt%20provocation%20about%20AI%2Dassisted%20programming%2E">Introduction</a></li>
+                <li><a href="#:~:text=level%20setting">Level Setting</a></li>
+                <li><a href="#:~:text=the%20positive%20case">The Positive Case</a></li>
+                <li><a href="#:~:text=but%20you%20have%20no%20idea%20what%20the%20code%20is">But You Have No Idea What the Code Is</a></li>
+                <li><a href="#:~:text=but%20hallucination">But Hallucination</a></li>
+                <li><a href="#:~:text=but%20the%20code%20is%20shitty%2C%20like%20that%20of%20a%20junior%20developer">But the Code Is Shitty</a></li>
+                <li><a href="#:~:text=but%20it%27s%20bad%20at%20rust">But It's Bad at Rust</a></li>
+                <li><a href="#:~:text=but%20the%20craft">But the Craft</a></li>
+                <li><a href="#:~:text=but%20the%20mediocrity">But the Mediocrity</a></li>
+                <li><a href="#:~:text=but%20it%27ll%20never%20be%20AGI">But It'll Never Be AGI</a></li>
+                <li><a href="#:~:text=but%20they%20take%2Drr%20jerbs">But They Take Our Jobs</a></li>
+                <li><a href="#:~:text=but%20the%20plagiarism">But the Plagiarism</a></li>
+                <li><a href="#:~:text=positive%20case%20redux">Positive Case Redux</a></li>
+                <li><a href="#:~:text=but%20i%27m%20tired%20of%20hearing%20about%20it">But I'm Tired of Hearing About It</a></li>
             </ul>
         </details>
     </div>
+</div>
+<button class="toc-btn" popovertarget="toc" aria-label="Table of contents">☰</button>
+<div id="toc" class="toc-popover" popover>
+    <ul>
+        <li><a href="#:~:text=A%20heartfelt%20provocation%20about%20AI%2Dassisted%20programming%2E">Introduction</a></li>
+        <li><a href="#:~:text=level%20setting">Level Setting</a></li>
+        <li><a href="#:~:text=the%20positive%20case">The Positive Case</a></li>
+        <li><a href="#:~:text=but%20you%20have%20no%20idea%20what%20the%20code%20is">But You Have No Idea What the Code Is</a></li>
+        <li><a href="#:~:text=but%20hallucination">But Hallucination</a></li>
+        <li><a href="#:~:text=but%20the%20code%20is%20shitty%2C%20like%20that%20of%20a%20junior%20developer">But the Code Is Shitty</a></li>
+        <li><a href="#:~:text=but%20it%27s%20bad%20at%20rust">But It's Bad at Rust</a></li>
+        <li><a href="#:~:text=but%20the%20craft">But the Craft</a></li>
+        <li><a href="#:~:text=but%20the%20mediocrity">But the Mediocrity</a></li>
+        <li><a href="#:~:text=but%20it%27ll%20never%20be%20AGI">But It'll Never Be AGI</a></li>
+        <li><a href="#:~:text=but%20they%20take%2Drr%20jerbs">But They Take Our Jobs</a></li>
+        <li><a href="#:~:text=but%20the%20plagiarism">But the Plagiarism</a></li>
+        <li><a href="#:~:text=positive%20case%20redux">Positive Case Redux</a></li>
+        <li><a href="#:~:text=but%20i%27m%20tired%20of%20hearing%20about%20it">But I'm Tired of Hearing About It</a></li>
+    </ul>
 </div>
 {% endblock %}
