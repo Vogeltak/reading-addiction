@@ -64,10 +64,11 @@
         }
 
         header {
-            border-bottom: 1px dashed var(--border-100);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 1rem;
-            padding: 4px;
-            text-align: center;
+            padding: 8px 4px;
         }
 
         header a {
@@ -81,6 +82,18 @@
         header a:hover {
             background: none;
             text-decoration: underline;
+        }
+
+        .searchbar {
+            background: var(--bg-200);
+            border: none;
+            border-radius: 2em;
+            color: var(--text-100);
+            padding: 0.5em 1rem;
+        }
+
+        .searchbar:focus-visible {
+            outline: 3px solid var(--bg-400);
         }
 
         a {
@@ -176,6 +189,7 @@
 <body>
     <header>
         <a href="/">Marxive</a>
+        <input type="text" class="searchbar" placeholder="Search full archive">
     </header>
     {% block body %}{% endblock %}
 </body>
