@@ -6,10 +6,26 @@
     <title>{% block title %}Marxive - Reading List{% endblock %}</title>
     <style>
         * {
-            --bg-100: #ffffff;
-            --bg-200: #f2f2f2;
-            --bg-300: #e5e5e5;
-            --bg-400: #d9d9d9;
+            /* Color pallette (if I want some color) */
+            /*
+            --lightness-base: 0.95;
+            --hue: 150;
+            --chroma: 0.075;
+            */
+
+            /* Or gray serious stuff if I want to be like all other modern sites */
+            --lightness-base: 1;
+            --hue: 0;
+            --chroma: 0;
+
+            --lightness-step: 0.05;
+
+            /* Background tints */
+            --bg-100: oklch(var(--lightness-base) var(--chroma) var(--hue));
+            --bg-200: oklch(calc(var(--lightness-base) - var(--lightness-step) * 1) var(--chroma) var(--hue));
+            --bg-300: oklch(calc(var(--lightness-base) - var(--lightness-step) * 2) var(--chroma) var(--hue));
+            --bg-400: oklch(calc(var(--lightness-base) - var(--lightness-step) * 3) var(--chroma) var(--hue));
+
             --border-100: black;
             --text-100: black;
             --text-200: oklch(0.3 0 0);
@@ -19,10 +35,16 @@
 
         @media (prefers-color-scheme: dark) {
             * {
-                --bg-100: black;
-                --bg-200: #272727;
-                --bg-300: #3d3d3d;
-                --bg-400: #505050;
+                --lightness-base: 0;
+                --hue: 0;
+                --chroma: 0;
+
+                --lightness-step: 0.15;
+
+                --bg-100: oklch(var(--lightness-base) var(--chroma) var(--hue));
+                --bg-200: oklch(calc(var(--lightness-base) + var(--lightness-step) * 2) var(--chroma) var(--hue));
+                --bg-300: oklch(calc(var(--lightness-base) + var(--lightness-step) * 2.5) var(--chroma) var(--hue));
+                --bg-400: oklch(calc(var(--lightness-base) + var(--lightness-step) * 3) var(--chroma) var(--hue));
                 --border-100: hsl(51 16.5% 84.5%);
                 --text-100: oklch(0.9 0 0);
                 --text-200: oklch(0.8 0 0);
